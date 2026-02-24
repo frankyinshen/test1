@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>单词学习与测试程序 V3.2.2</title>
+    <title>单词学习与测试程序 V3.2.3</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <style>
         :root {
@@ -601,6 +601,15 @@
         elements.startBtn.addEventListener('click', () => { if (!state.currentMode) { alert('请先选择一个模式'); return; } activateMobileAudio(); startSession(state.allWords, state.currentMode, false); });
         
         views.study.addEventListener('click', (e) => {
+            // FIX START: 优先检查是否点击了单词区域，修复点击单词不发音的问题
+            if (e.target.closest('#word-display-area')) {
+                 speak(state.studyList[state.currentWordIndex]?.english);
+                 const word = state.studyList[state.currentWordIndex]?.english;
+                 if (navigator.clipboard && window.isSecureContext) { navigator.clipboard.writeText(word).catch(e => console.error(e)); }
+                 return;
+            }
+            // FIX END
+
             const target = e.target.closest('button'); if (!target) return;
             
             // V3.1 Global Buttons Logic
@@ -626,15 +635,6 @@
                 state.isAutoAudio = !state.isAutoAudio;
                 updateAudioButtonState();
                 return;
-            }
-            
-            // V3.2.1 Fix: Use the global speak function
-            if (target.id === 'word-display-area' || target.closest('#word-display-area')) {
-                 speak(state.studyList[state.currentWordIndex]?.english);
-                 // Silent Copy
-                 const word = state.studyList[state.currentWordIndex]?.english;
-                 if (navigator.clipboard && window.isSecureContext) { navigator.clipboard.writeText(word).catch(e => console.error(e)); }
-                 return;
             }
             
             if (target.id === 'play-btn') { // Explicit Play Button Handler
