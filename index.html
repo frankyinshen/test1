@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>单词学习与测试程序 V3.1</title>
+    <title>单词学习与测试程序 V3.1.1</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <style>
         :root {
@@ -160,7 +160,6 @@
         .toggle-btn { padding: 6px 12px; font-size: 13px; border-color: var(--primary-color); color: var(--primary-color); text-transform: none; }
         .toggle-btn:hover { background-color: var(--primary-color); color: white; border-color: var(--primary-color); }
         
-        /* New buttons specific styling */
         .global-toggle-btn { font-weight: bold; }
 
         .study-actions-desktop { display: none; }
@@ -198,7 +197,6 @@
             .word-display .english { font-size: 32px; }
             .word-display .phonetic { font-size: 18px; }
             .toggle-buttons { grid-template-columns: repeat(2, 1fr); display: grid; }
-            /* Make the new buttons span 1 column or 2 columns based on need. For now, auto grid is fine, but toggle-all usually spans full */
             #toggle-all-btn, #global-show-all-btn, #global-default-btn { grid-column: 1 / -1; }
             .bottom-bar { display: flex; position: fixed; bottom: 0; left: 0; right: 0; background-color: #ffffff; padding: 12px 15px; box-shadow: 0 -2px 10px rgba(0,0,0,0.1); flex-direction: column; gap: 8px; max-width: 1000px; margin: 0 auto; border-top: 1px solid var(--border-color); }
         }
@@ -212,7 +210,7 @@
     <script>
         document.querySelector('.app-container').innerHTML = `
         <div id="setup-view" class="view active">
-            <h1>单词学习与测试程序 V3.1</h1>
+            <h1>单词学习与测试程序 V3.1.1</h1>
             
             <div class="setup-section">
                 <div class="inline-input-group">
@@ -296,28 +294,25 @@
             currentWordIndex: 0, currentMode: null, sessionSubErrors: [], 
             beginnerUnfamiliar: [], 
             isCategorizedReview: false, delaySettings: { test: 1.5, phonics: 1.5 }, 
-            ttsVoice: null, isTTSReady: false, allVoices: [], autoPlayTimeout: null, 
+            autoPlayTimeout: null, 
             serverBaseUrl: 'https://res.evanyin.dpdns.org/', currentServerUrl: 'https://res.evanyin.dpdns.org/',
-            corsProxy: 'https://api.allorigins.win/raw?url=',
-            isGlobalShowAll: false // V3.1
+            isGlobalShowAll: false 
         };
         const views = { setup: document.getElementById('setup-view'), reviewOptions: document.getElementById('review-options-view'), study: document.getElementById('study-view'), results: document.getElementById('results-view'), };
         const elements = { nameInput: document.getElementById('name-input'), urlInput: document.getElementById('url-input'), fileInput: document.getElementById('file-input'), loadUrlBtn: document.getElementById('load-url-btn'), uploadBtn: document.getElementById('upload-btn'), sheetSelector: document.getElementById('sheet-selector'), sheetSelect: document.getElementById('sheet-select'), loadingStatusUrl: document.getElementById('loading-status-url'), loadingStatusLocal: document.getElementById('loading-status-local'), templateLink: document.getElementById('template-link'), modeSelectionControls: document.getElementById('mode-selection-controls'), welcomeMessage: document.getElementById('welcome-message'), startBtn: document.getElementById('start-btn'), reviewBtn: document.getElementById('review-btn'), delaySettings: document.getElementById('delay-settings'), delayInput: document.getElementById('delay-input'), progressIndicator: document.getElementById('progress-indicator'), wordEnglish: document.getElementById('word-english'), wordPhonetic: document.getElementById('word-phonetic'), wordChinese: document.getElementById('word-chinese-content'), wordSentence: document.getElementById('word-sentence-content'), wordTranslation: document.getElementById('word-translation-content'), wordNotes: document.getElementById('word-notes-content'), infoItems: document.querySelectorAll('.info-item'), toggleButtonsPanel: document.getElementById('toggle-buttons-panel'), wordDisplayArea: document.getElementById('word-display-area'), resultsTitle: document.getElementById('results-title'), resultsSummary: document.getElementById('results-summary'), errorContainer: document.getElementById('error-container'), exportErrorsBtn: document.getElementById('export-errors-btn'), desktopActionsPlaceholder: document.getElementById('desktop-actions-placeholder'), mobileActionsPlaceholder: document.getElementById('mobile-actions-placeholder'), actionsTemplate: document.getElementById('actions-template'),
         urlSourceRadios: document.getElementsByName('url-source'), manualInputSection: document.getElementById('manual-input-section'), serverBrowserSection: document.getElementById('server-browser-section'), serverFileList: document.getElementById('server-file-list'), serverBackBtn: document.getElementById('server-back-btn'), serverCurrentPath: document.getElementById('server-current-path'), serverSearchInput: document.getElementById('server-search-input'),
-        // V3.1
         globalShowAllBtn: document.getElementById('global-show-all-btn'), globalDefaultBtn: document.getElementById('global-default-btn')
         };
         
         function switchView(viewName) { Object.values(views).forEach(v => v.classList.remove('active')); views[viewName].classList.add('active'); }
-        function saveData() { localStorage.setItem('wordLearner_userName', state.userName); localStorage.setItem('wordLearner_delaySettings', JSON.stringify(state.delaySettings)); if(state.ttsVoice) localStorage.setItem('wordLearner_voiceURI', state.ttsVoice.voiceURI); }
+        function saveData() { localStorage.setItem('wordLearner_userName', state.userName); localStorage.setItem('wordLearner_delaySettings', JSON.stringify(state.delaySettings)); }
         function loadData() { state.userName = localStorage.getItem('wordLearner_userName') || ''; elements.nameInput.value = state.userName; const s = localStorage.getItem('wordLearner_delaySettings'); if (s) state.delaySettings = JSON.parse(s); }
         
         const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
 
         function initTTS() {
             if (!('speechSynthesis' in window)) return;
-            // iOS: Hide settings, use default
-            if (isIOS) { state.isTTSReady = true; return; }
+            if (isIOS) return;
 
             const load = () => {
                 const voices = speechSynthesis.getVoices();
@@ -373,14 +368,18 @@
             elements.serverFileList.innerHTML = '<li style="padding:15px; text-align:center; color:gray;">正在加载...</li>';
 
             try {
+                // FORCE DIRECT FETCH ONLY - Reverted to previous logic as requested
                 const r = await fetch(url);
                 if (!r.ok) throw new Error(`HTTP Error ${r.status}`);
                 const html = await r.text();
+
                 const parser = new DOMParser();
                 const doc = parser.parseFromString(html, 'text/html');
                 const links = Array.from(doc.querySelectorAll('.name-col a'));
+                
                 elements.serverFileList.innerHTML = '';
                 let itemsFound = 0;
+
                 links.forEach(a => {
                     const href = a.getAttribute('href');
                     const textContent = a.textContent.trim(); 
@@ -390,18 +389,29 @@
                     const isFile = textContent.includes('📄');
                     const fileName = textContent.replace(/[📁📄]/g, '').trim();
                     const isExcel = isFile && (fileName.toLowerCase().endsWith('.xls') || fileName.toLowerCase().endsWith('.xlsx'));
+                    
                     if (!isFolder && !isExcel) return; 
+
                     const li = document.createElement('li');
                     li.className = `file-item ${isFolder ? 'folder-item' : 'excel-item'}`;
                     const icon = document.createElement('span'); icon.className = 'file-icon'; icon.textContent = isFolder ? '📁' : '📊';
                     const nameSpan = document.createElement('span'); nameSpan.className = 'file-name'; nameSpan.textContent = fileName;
                     li.appendChild(icon); li.appendChild(nameSpan);
-                    li.onclick = () => { if (isFolder) { navigateServer(fullUrl); } else { elements.urlInput.value = fullUrl; handleUrlLoad(fullUrl); } };
+                    
+                    li.onclick = () => {
+                        if (isFolder) { navigateServer(fullUrl); } 
+                        else { elements.urlInput.value = fullUrl; handleUrlLoad(fullUrl); }
+                    };
                     elements.serverFileList.appendChild(li);
                     itemsFound++;
                 });
+
                 if (itemsFound === 0) elements.serverFileList.innerHTML = '<li style="padding:15px; text-align:center; color:gray;">空文件夹或无Excel文件</li>';
-            } catch (err) { console.error(err); elements.serverFileList.innerHTML = '<li style="padding:15px; text-align:center; color:red;">无法连接服务器 (请检查网络)</li>'; }
+
+            } catch (err) {
+                console.error(err);
+                elements.serverFileList.innerHTML = '<li style="padding:15px; text-align:center; color:red;">无法连接服务器 (请检查网络)</li>';
+            }
         }
         
         elements.serverSearchInput.addEventListener('input', function(e) {
@@ -447,13 +457,14 @@
             if (!url) { alert('请输入URL或选择文件'); return; } 
             setStatus('正在下载文件...', 'url'); 
             try { 
-                const r = await fetch(state.corsProxy + encodeURIComponent(url));
+                // FORCE DIRECT FETCH ONLY - Removed Proxy Fallback
+                const r = await fetch(url); 
                 if (!r.ok) throw new Error('Network error'); 
                 const d = await r.arrayBuffer(); 
                 parseExcel(d, 'url'); 
             } catch (e1) { 
                 console.error(e1); 
-                setStatus('加载失败: 无法连接服务器', 'url'); 
+                setStatus('加载失败: 无法连接服务器 (请检查网络)', 'url'); 
             } 
         }
 
@@ -505,7 +516,6 @@
             if (!isCategorizedReview) { state.mainSessionErrors = []; }
             if (state.studyList.length === 0) { alert("没有要学习的单词。"); return; }
             
-            // V3.1: Toggle Global Buttons
             if (mode === 'beginner') {
                 elements.globalShowAllBtn.style.display = 'block';
                 elements.globalDefaultBtn.style.display = 'block';
