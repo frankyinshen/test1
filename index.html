@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>单词学习与测试程序 V3.2.6</title>
+    <title>单词学习与测试程序 V3.2.8</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <style>
         :root {
@@ -210,7 +210,7 @@
     <script>
         document.querySelector('.app-container').innerHTML = `
         <div id="setup-view" class="view active">
-            <h1>单词学习与测试程序 V3.2.6</h1>
+            <h1>单词学习与测试程序 V3.2.8</h1>
             
             <div class="setup-section">
                 <div class="inline-input-group">
@@ -311,50 +311,62 @@
         function saveData() { localStorage.setItem('wordLearner_userName', state.userName); localStorage.setItem('wordLearner_delaySettings', JSON.stringify(state.delaySettings)); if(state.ttsVoice) localStorage.setItem('wordLearner_voiceURI', state.ttsVoice.voiceURI); }
         function loadData() { state.userName = localStorage.getItem('wordLearner_userName') || ''; elements.nameInput.value = state.userName; const s = localStorage.getItem('wordLearner_delaySettings'); if (s) state.delaySettings = JSON.parse(s); }
         
-        // --- 核心修复：检测是否为 iOS 设备（包含伪装成 Mac 的 iPad） ---
-        const isIOS = (/iPad|iPhone|iPod/.test(navigator.userAgent)) || 
-                      (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
-
+        // --- 核心修复 1：彻底放开针对 iOS/iPad 的语音权限封锁 ---
+        // 移除了曾经导致 iPad 被强制设为 null voice 的错误逻辑
         function initTTS() {
             if (!('speechSynthesis' in window)) return;
-            if (isIOS) { state.isTTSReady = true; return; }
-
+            
             const load = () => {
                 const voices = speechSynthesis.getVoices();
                 if (voices.length === 0) return;
                 const enVoices = voices.filter(v => v.lang.startsWith('en'));
-                const priorities = ["Premium", "Enhanced", "Natural", "Google US English", "Microsoft Aria", "Microsoft Guy"];
+                
+                // 将 "Ava" 放在最高优先级，主动寻找你下载的高清语音包
+                const priorities = ["Ava", "Premium", "Enhanced", "Natural", "Siri", "Alex", "Google US English", "Microsoft Aria"];
                 let selected = null;
-                for (const keyword of priorities) { selected = enVoices.find(v => v.name.includes(keyword)); if (selected) break; }
+                for (const keyword of priorities) { 
+                    selected = enVoices.find(v => v.name.includes(keyword)); 
+                    if (selected) break; 
+                }
                 if (!selected) selected = enVoices.find(v => v.name.includes("Samantha"));
                 if (!selected) selected = enVoices.find(v => v.lang === 'en-US') || enVoices[0];
+                
                 state.ttsVoice = selected;
+                state.isTTSReady = true;
             };
+            
             load();
-            if (speechSynthesis.onvoiceschanged !== undefined) { speechSynthesis.onvoiceschanged = load; }
+            if (speechSynthesis.onvoiceschanged !== undefined) { 
+                speechSynthesis.onvoiceschanged = load; 
+            }
         }
         
-        // --- 核心修复：彻底解决点第二次不发音的 Bug ---
-        let currentUtterance = null; // 全局保留引用，防止垃圾回收导致卡死
+        // --- 核心修复 2：彻底解决连续点击造成的卡死现象 ---
+        let currentUtterance = null; // 全局对象防止垃圾回收
 
         function speak(text) {
             if (!text) return;
             
-            // 先彻底停止之前的发音
+            // 每次发音前，清空语音引擎的队列
             window.speechSynthesis.cancel();
             
-            // 加入延时，让浏览器底层有时间清理音频队列，防止卡死
+            // 加入 50 毫秒的小延迟，给 Safari 引擎缓冲时间
             setTimeout(() => {
                 currentUtterance = new SpeechSynthesisUtterance(text);
                 currentUtterance.rate = 0.9; 
                 currentUtterance.pitch = 1.0; 
                 
-                if (isIOS) { 
-                    currentUtterance.lang = 'en-US'; 
-                    currentUtterance.voice = null; // 在iOS/iPadOS上交还给系统，调用原生Ava音效
-                } else { 
-                    if (!state.ttsVoice) initTTS(); 
-                    if (state.ttsVoice) currentUtterance.voice = state.ttsVoice; 
+                // 给尚未完成加载时的保护机制
+                if (!state.ttsVoice) {
+                    initTTS();
+                }
+                
+                // 无论什么设备，只要找到了好的声音，就强制挂载它！
+                if (state.ttsVoice) {
+                    currentUtterance.voice = state.ttsVoice;
+                    currentUtterance.lang = state.ttsVoice.lang;
+                } else {
+                    currentUtterance.lang = 'en-US';
                 }
                 
                 window.speechSynthesis.speak(currentUtterance);
@@ -619,19 +631,18 @@
         elements.startBtn.addEventListener('click', () => { if (!state.currentMode) { alert('请先选择一个模式'); return; } activateMobileAudio(); startSession(state.allWords, state.currentMode, false); });
         
         views.study.addEventListener('click', (e) => {
-            // --- 核心修复：优先检查是不是点到了单词区域，完全独立出来 ---
+            // --- 核心修复 3：独立保护单词点击区域，随时发音 ---
             const wordDisplay = e.target.closest('.word-display');
             if (wordDisplay) {
                  const word = state.studyList[state.currentWordIndex]?.english;
                  speak(word);
-                 // 静默复制
+                 // 复制单词
                  if (navigator.clipboard && window.isSecureContext) { 
                      navigator.clipboard.writeText(word).catch(err => console.error(err)); 
                  }
-                 return; // 重要：点到单词区域后立即返回，不再触发下方按钮事件
+                 return; // 点击单词后直接结束，不再触发下方的按钮逻辑
             }
 
-            // 往下是常规按钮的点击事件
             const target = e.target.closest('button'); 
             if (!target) return;
             
