@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>单词学习与测试程序 V3.2.5</title>
+    <title>单词学习与测试程序 V3.2.6</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <style>
         :root {
@@ -210,7 +210,7 @@
     <script>
         document.querySelector('.app-container').innerHTML = `
         <div id="setup-view" class="view active">
-            <h1>单词学习与测试程序 V3.2.3</h1>
+            <h1>单词学习与测试程序 V3.2.6</h1>
             
             <div class="setup-section">
                 <div class="inline-input-group">
@@ -311,7 +311,9 @@
         function saveData() { localStorage.setItem('wordLearner_userName', state.userName); localStorage.setItem('wordLearner_delaySettings', JSON.stringify(state.delaySettings)); if(state.ttsVoice) localStorage.setItem('wordLearner_voiceURI', state.ttsVoice.voiceURI); }
         function loadData() { state.userName = localStorage.getItem('wordLearner_userName') || ''; elements.nameInput.value = state.userName; const s = localStorage.getItem('wordLearner_delaySettings'); if (s) state.delaySettings = JSON.parse(s); }
         
-        const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+        // --- 核心修复：检测是否为 iOS 设备（包含伪装成 Mac 的 iPad） ---
+        const isIOS = (/iPad|iPhone|iPod/.test(navigator.userAgent)) || 
+                      (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
 
         function initTTS() {
             if (!('speechSynthesis' in window)) return;
@@ -341,7 +343,7 @@
             // 先彻底停止之前的发音
             window.speechSynthesis.cancel();
             
-            // 加入一个微小的延时，让浏览器底层有时间清理之前的音频队列
+            // 加入延时，让浏览器底层有时间清理音频队列，防止卡死
             setTimeout(() => {
                 currentUtterance = new SpeechSynthesisUtterance(text);
                 currentUtterance.rate = 0.9; 
@@ -349,14 +351,14 @@
                 
                 if (isIOS) { 
                     currentUtterance.lang = 'en-US'; 
-                    currentUtterance.voice = null; 
+                    currentUtterance.voice = null; // 在iOS/iPadOS上交还给系统，调用原生Ava音效
                 } else { 
                     if (!state.ttsVoice) initTTS(); 
                     if (state.ttsVoice) currentUtterance.voice = state.ttsVoice; 
                 }
                 
                 window.speechSynthesis.speak(currentUtterance);
-            }, 50); // 50毫秒的延迟是解决这个经典Bug的关键
+            }, 50);
         }
         // ------------------------------------------------
 
@@ -617,7 +619,7 @@
         elements.startBtn.addEventListener('click', () => { if (!state.currentMode) { alert('请先选择一个模式'); return; } activateMobileAudio(); startSession(state.allWords, state.currentMode, false); });
         
         views.study.addEventListener('click', (e) => {
-            // --- 核心修复：优先检测是不是点到了单词区域 ---
+            // --- 核心修复：优先检查是不是点到了单词区域，完全独立出来 ---
             const wordDisplay = e.target.closest('.word-display');
             if (wordDisplay) {
                  const word = state.studyList[state.currentWordIndex]?.english;
@@ -626,10 +628,10 @@
                  if (navigator.clipboard && window.isSecureContext) { 
                      navigator.clipboard.writeText(word).catch(err => console.error(err)); 
                  }
-                 return; // 重要：点击了单词就不要再往下走了
+                 return; // 重要：点到单词区域后立即返回，不再触发下方按钮事件
             }
-            // ----------------------------------------------
 
+            // 往下是常规按钮的点击事件
             const target = e.target.closest('button'); 
             if (!target) return;
             
@@ -658,7 +660,7 @@
                 return;
             }
             
-            if (target.id === 'play-btn') { // Explicit Play Button Handler
+            if (target.id === 'play-btn') {
                  speak(state.studyList[state.currentWordIndex]?.english);
                  return;
             }
