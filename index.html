@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>单词学习与测试程序 V3.2.9</title>
+    <title>单词学习与测试程序 V3.3.1</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <style>
         :root {
@@ -210,7 +210,7 @@
     <script>
         document.querySelector('.app-container').innerHTML = `
         <div id="setup-view" class="view active">
-            <h1>单词学习与测试程序 V3.2.9</h1>
+            <h1>单词学习与测试程序 V3.3.1</h1>
             
             <div class="setup-section">
                 <div class="inline-input-group">
@@ -311,92 +311,70 @@
         function saveData() { localStorage.setItem('wordLearner_userName', state.userName); localStorage.setItem('wordLearner_delaySettings', JSON.stringify(state.delaySettings)); if(state.ttsVoice) localStorage.setItem('wordLearner_voiceURI', state.ttsVoice.voiceURI); }
         function loadData() { state.userName = localStorage.getItem('wordLearner_userName') || ''; elements.nameInput.value = state.userName; const s = localStorage.getItem('wordLearner_delaySettings'); if (s) state.delaySettings = JSON.parse(s); }
         
-        // --- 核心修复：通用最优语音选择（支持 iPhone/iPad/Windows/Android） ---
-        const isIOS = (/iPad|iPhone|iPod/.test(navigator.userAgent)) || 
-                      (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
-
-        // 优先级关键词：覆盖 iOS Ava Enhanced、Windows Aria/Guy Enhanced、Android等
-        const VOICE_PRIORITY_KEYWORDS = [
-            "Ava (Enhanced)", "Ava (Premium)",   // iPadOS/iOS 优化音质精确匹配
-            "Samantha (Enhanced)", "Samantha (Premium)",
-            "Enhanced", "Premium",               // 所有平台的增强/优质声音
-            "Natural",                           // Windows Natural系列
-            "Google US English",                 // Android Chrome
-            "Microsoft Aria Online",             // Windows 在线高质量
-            "Microsoft Guy Online",
-            "Microsoft Aria",                    // Windows 本地
-            "Microsoft Guy",
-            "Samantha",                          // iOS/macOS 标准 Ava 回退
-            "Ava"                                // 兜底：找名字含 Ava 的
-        ];
-
-        function getBestEnglishVoice(voices) {
-            const enVoices = voices.filter(v => v.lang.startsWith('en'));
-            if (enVoices.length === 0) return null;
-            for (const keyword of VOICE_PRIORITY_KEYWORDS) {
-                // 精确包含匹配，大小写不敏感
-                const found = enVoices.find(v => v.name.includes(keyword));
-                if (found) return found;
-            }
-            // 最终兜底：en-US 或第一个英文声音
-            return enVoices.find(v => v.lang === 'en-US') || enVoices[0];
-        }
+        // --- 严格区分 iPhone 与 iPad ---
+        const isiPhone = /iPhone/i.test(navigator.userAgent);
+        // iPad 检测：UA中含iPad，或者 是Mac平台且支持多点触控（iPadOS伪装成Mac）
+        const isiPad = /iPad/i.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
 
         function initTTS() {
             if (!('speechSynthesis' in window)) return;
-            
-            const tryLoad = () => {
-                const voices = speechSynthesis.getVoices();
-                if (voices.length === 0) return false;
-                state.ttsVoice = getBestEnglishVoice(voices);
-                state.isTTSReady = true;
-                // console.log('[TTS] 选中声音:', state.ttsVoice ? `${state.ttsVoice.name} (${state.ttsVoice.lang})` : '系统默认');
-                return true;
-            };
-
-            // 立即尝试（桌面端通常直接可用）
-            if (!tryLoad()) {
-                // 异步加载完成后再试（移动端常见场景）
+            // 只需要初始化，具体的选择逻辑在 speak 函数中分流
+            if (speechSynthesis.onvoiceschanged !== undefined) {
                 speechSynthesis.onvoiceschanged = () => {
-                    tryLoad();
-                    speechSynthesis.onvoiceschanged = null; // 只触发一次
+                    // 仅为了触发加载，不需在此处做决定
                 };
-                // iOS/iPadOS 额外保险：延迟重试（用户交互后声音列表才会填充）
-                if (isIOS) {
-                    setTimeout(() => { if (!state.isTTSReady) tryLoad(); }, 500);
-                    setTimeout(() => { if (!state.isTTSReady) tryLoad(); }, 1500);
-                }
             }
         }
         
-        // --- 核心修复：Speak 函数 ---
-        let currentUtterance = null; // 全局保留引用
+        // --- 核心修复：按设备分流发音策略 ---
+        let currentUtterance = null; // 全局对象防止垃圾回收
 
         function speak(text) {
             if (!text) return;
             
-            // 先彻底停止之前的发音
+            // 1. 停止之前的发音
             window.speechSynthesis.cancel();
             
-            // 加入 50ms 延时，让浏览器底层有时间清理音频队列，防止卡死
+            // 2. 50ms 延迟，解决连续点击卡死问题
             setTimeout(() => {
                 currentUtterance = new SpeechSynthesisUtterance(text);
                 currentUtterance.rate = 0.9; 
                 currentUtterance.pitch = 1.0; 
-                currentUtterance.lang = 'en-US'; // 统一兜底语言
-
-                // 策略：如果有找到的最优声音，就强制用它。
-                // 如果没找到（iOS 首次可能为空），再尝试找一次。
-                if (state.ttsVoice) {
-                    currentUtterance.voice = state.ttsVoice;
-                } else if (isIOS) {
-                    // 再次尝试获取（应对 iOS 懒加载声音列表）
-                    const voices = speechSynthesis.getVoices();
-                    if (voices.length > 0) {
-                        state.ttsVoice = getBestEnglishVoice(voices);
-                        if (state.ttsVoice) currentUtterance.voice = state.ttsVoice;
-                        state.isTTSReady = true;
+                
+                if (isiPhone) {
+                    // --- iPhone 策略：回归最原始逻辑，完全信任系统 ---
+                    // 不指定 voice，也不指定 lang (除非必要)，完全由 iOS 系统设置接管
+                    currentUtterance.voice = null; 
+                    currentUtterance.lang = 'en-US'; 
+                } 
+                else if (isiPad) {
+                    // --- iPad 策略：强制搜索并指定 Ava ---
+                    // 获取当前所有声音
+                    const allVoices = window.speechSynthesis.getVoices();
+                    
+                    // 尝试寻找含有 "Ava" 或 "Premium/Enhanced" 的声音
+                    let bestVoice = allVoices.find(v => v.name.includes("Ava") && (v.name.includes("Enhanced") || v.name.includes("Premium")));
+                    if (!bestVoice) bestVoice = allVoices.find(v => v.name.includes("Ava")); // 只要是 Ava 就行
+                    if (!bestVoice) bestVoice = allVoices.find(v => v.name.includes("Enhanced") && v.lang.startsWith("en")); // 任意优质英语
+                    if (!bestVoice) bestVoice = allVoices.find(v => v.name.includes("Premium") && v.lang.startsWith("en"));
+                    
+                    if (bestVoice) {
+                        currentUtterance.voice = bestVoice;
+                    } else {
+                        // 实在找不到，回退到 en-US
+                        currentUtterance.lang = 'en-US';
                     }
+                } 
+                else {
+                    // --- 其他设备（PC/Android）：通用最优策略 ---
+                    if (!state.ttsVoice) {
+                        const voices = window.speechSynthesis.getVoices();
+                        const enVoices = voices.filter(v => v.lang.startsWith('en'));
+                        state.ttsVoice = enVoices.find(v => v.name.includes("Google US")) || 
+                                         enVoices.find(v => v.name.includes("Microsoft Aria")) || 
+                                         enVoices.find(v => v.lang === 'en-US');
+                    }
+                    if (state.ttsVoice) currentUtterance.voice = state.ttsVoice;
                 }
                 
                 window.speechSynthesis.speak(currentUtterance);
@@ -661,7 +639,7 @@
         elements.startBtn.addEventListener('click', () => { if (!state.currentMode) { alert('请先选择一个模式'); return; } activateMobileAudio(); startSession(state.allWords, state.currentMode, false); });
         
         views.study.addEventListener('click', (e) => {
-            // --- 单词区域点击：独立发音逻辑 ---
+            // --- 单词区域点击：发音 ---
             const wordDisplay = e.target.closest('.word-display');
             if (wordDisplay) {
                  const word = state.studyList[state.currentWordIndex]?.english;
