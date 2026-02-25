@@ -110,26 +110,41 @@
         function pickBestEnglishVoice(voices) {
             if (!voices || voices.length === 0) return null;
 
-            // 苹果设备上常见的高质量音色名（可按喜好调整顺序）
-            const preferredNames = ['Ava', 'Samantha', 'Karen', 'Moira', 'Tessa', 'Allison', 'Susan', 'Zoe', 'Nicky'];
-            const qualityKeywords = ['enhanced', 'premium', 'neural'];
+            // 质量关键词：同时覆盖英文名和中文名（系统语言为中文时音色名是中文）
+            // 例如 "Ava Enhanced" 在中文系统里叫 "Ava（优化音质）"
+            const qualityKeywords = ['enhanced', 'premium', 'neural', '优化', '增强', '高质'];
 
-            // 1. Enhanced/Premium 优先
+            // 第一优先：名字含 Ava 且含质量关键词（精确命中用户下载的优化版 Ava）
+            for (const kw of qualityKeywords) {
+                const v = voices.find(v =>
+                    v.lang.startsWith('en') &&
+                    v.name.toLowerCase().includes('ava') &&
+                    v.name.includes(kw)   // 中文关键词区分大小写无所谓，英文用小写
+                );
+                if (v) return v;
+            }
+
+            // 第二优先：任意含质量关键词的英文音色（优化版 Samantha 等）
+            const preferredNames = ['Samantha', 'Allison', 'Susan', 'Zoe', 'Nicky', 'Moira', 'Tessa', 'Karen'];
             for (const kw of qualityKeywords) {
                 for (const name of preferredNames) {
                     const v = voices.find(v =>
                         v.lang.startsWith('en') &&
                         v.name.toLowerCase().includes(name.toLowerCase()) &&
-                        v.name.toLowerCase().includes(kw)
+                        v.name.includes(kw)
                     );
                     if (v) return v;
                 }
                 // 任意含质量关键词的英文音色
-                const v = voices.find(v => v.lang.startsWith('en') && v.name.toLowerCase().includes(kw));
+                const v = voices.find(v => v.lang.startsWith('en') && v.name.includes(kw));
                 if (v) return v;
             }
 
-            // 2. 偏好名称（无质量标记）
+            // 第三优先：Ava（无质量标记，兜底）
+            const ava = voices.find(v => v.lang.startsWith('en') && v.name.toLowerCase().includes('ava'));
+            if (ava) return ava;
+
+            // 第四优先：其他偏好名称
             for (const name of preferredNames) {
                 const v = voices.find(v =>
                     v.lang.startsWith('en') &&
@@ -138,12 +153,9 @@
                 if (v) return v;
             }
 
-            // 3. 任意 en-US
-            const enUS = voices.find(v => v.lang === 'en-US');
-            if (enUS) return enUS;
-
-            // 4. 任意英文
-            return voices.find(v => v.lang.startsWith('en')) || null;
+            // 兜底：任意 en-US，再任意英文
+            return voices.find(v => v.lang === 'en-US') ||
+                   voices.find(v => v.lang.startsWith('en')) || null;
         }
 
         /**
