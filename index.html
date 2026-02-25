@@ -23,7 +23,8 @@
         .cn-meaning { color: #d9534f; font-weight: bold; margin-bottom: 5px; display: block; }
         
         /* 音色调试面板 */
-        #voiceDebug { font-size: 11px; color: #aaa; margin-top: 6px; min-height: 14px; }
+        #voiceDebug { font-size: 11px; color: #555; margin-top: 8px; white-space: pre-wrap; text-align: left; background: #f2f2f7; padding: 8px 10px; border-radius: 8px; display: none; word-break: break-all; }
+        #listVoicesBtn { margin-top: 10px; background: #f2f2f7; border: none; padding: 7px 14px; border-radius: 8px; font-size: 13px; cursor: pointer; color: #555; }
         
         .input-group { text-align: left; margin-bottom: 20px; }
         label { font-size: 14px; font-weight: 600; color: #636366; display: block; margin-bottom: 8px; }
@@ -55,7 +56,7 @@
     <div class="card">
         <h2>
             🎙️ 语音拼写生词本
-            <span class="version-tag">v4.4.1-iPad</span>
+            <span class="version-tag">v4.4.1-iPad11111</span>
         </h2>
         <div class="input-group"><label for="archiveName">归档名称:</label><input type="text" id="archiveName"></div>
         <button id="recordBtn">按住开始拼写字母</button>
@@ -64,6 +65,7 @@
         <div id="resultWord">...</div>
         <div id="meaning">需要空格时，请读 "zip"</div>
         <div id="voiceDebug"></div>
+        <button id="listVoicesBtn">🔍 列出所有英文音色（调试用）</button>
     </div>
 
     <div class="card word-list">
@@ -182,8 +184,10 @@
                 const best = pickBestEnglishVoice(voices);
                 if (best) {
                     utterance.voice = best;
-                    voiceDebug.innerText = `🔊 音色: ${best.name} (${best.lang})`;
+                    voiceDebug.style.display = 'block';
+                    voiceDebug.innerText = `🔊 当前音色: "${best.name}" | ${best.lang}`;
                 } else {
+                    voiceDebug.style.display = 'block';
                     voiceDebug.innerText = '🔊 音色: 系统默认';
                 }
                 window.speechSynthesis.speak(utterance);
@@ -492,6 +496,33 @@
             });
         }
         renderVocabList();
+
+        // 调试：列出所有可用英文音色
+        document.getElementById('listVoicesBtn').addEventListener('click', () => {
+            const doList = () => {
+                const all = window.speechSynthesis.getVoices();
+                const enVoices = all.filter(v => v.lang.startsWith('en'));
+                voiceDebug.style.display = 'block';
+                if (enVoices.length === 0) {
+                    voiceDebug.innerText = '⚠️ 未找到任何英文音色，请稍后再试。';
+                    return;
+                }
+                voiceDebug.innerText = `共找到 ${enVoices.length} 个英文音色：\n` +
+                    enVoices.map((v, i) => `${i+1}. "${v.name}" | ${v.lang}`).join('\n');
+            };
+            const voices = window.speechSynthesis.getVoices();
+            if (voices && voices.length > 0) {
+                doList();
+            } else {
+                voiceDebug.style.display = 'block';
+                voiceDebug.innerText = '⏳ 正在加载音色列表...';
+                window.speechSynthesis.onvoiceschanged = () => {
+                    window.speechSynthesis.onvoiceschanged = null;
+                    doList();
+                };
+                window.speechSynthesis.getVoices();
+            }
+        });
 
         // 页面加载后预热 voices 列表（解决 iPad 首次调用延迟问题）
         if (DEVICE_TYPE !== 'iPhone') {
