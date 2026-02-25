@@ -22,6 +22,9 @@
         #meaning { font-size: 15px; color: #3a3a3c; min-height: 45px; background: #f2f2f7; padding: 12px; border-radius: 12px; line-height: 1.5; text-align: left;}
         .cn-meaning { color: #d9534f; font-weight: bold; margin-bottom: 5px; display: block; }
         
+        /* 音色调试面板 */
+        #voiceDebug { font-size: 11px; color: #aaa; margin-top: 6px; min-height: 14px; }
+        
         .input-group { text-align: left; margin-bottom: 20px; }
         label { font-size: 14px; font-weight: 600; color: #636366; display: block; margin-bottom: 8px; }
         input[type="text"] { width: 100%; padding: 12px; border: 1px solid #d1d1d6; border-radius: 10px; box-sizing: border-box; font-size: 16px; outline: none; }
@@ -52,7 +55,7 @@
     <div class="card">
         <h2>
             🎙️ 语音拼写生词本
-            <span class="version-tag">v4.4.1-iPad修复</span>
+            <span class="version-tag">v4.4.1-iPad</span>
         </h2>
         <div class="input-group"><label for="archiveName">归档名称:</label><input type="text" id="archiveName"></div>
         <button id="recordBtn">按住开始拼写字母</button>
@@ -60,6 +63,7 @@
         <div id="rawTranscript"></div>
         <div id="resultWord">...</div>
         <div id="meaning">需要空格时，请读 "zip"</div>
+        <div id="voiceDebug"></div>
     </div>
 
     <div class="card word-list">
@@ -78,6 +82,126 @@
         const resultWordDisplay = document.getElementById('resultWord');
         const meaningDisplay = document.getElementById('meaning');
         const vocabListDisplay = document.getElementById('vocabList');
+        const voiceDebug = document.getElementById('voiceDebug');
+
+        // ============================================================
+        // 【v4.4.1 新增】设备检测 & 最优音色选择
+        // ============================================================
+
+        /**
+         * 检测当前设备类型。
+         * 注意：iPadOS 13+ 将 UA 伪装成 Macintosh，需要用 maxTouchPoints 来区分。
+         */
+        function getDeviceType() {
+            const ua = navigator.userAgent;
+            if (/iPad/.test(ua)) return 'iPad';
+            if (/iPhone/.test(ua)) return 'iPhone';
+            // iPadOS 13+ 伪装成 Mac，但触点数 > 1
+            if (/Macintosh/.test(ua) && navigator.maxTouchPoints > 1) return 'iPad';
+            return 'other';
+        }
+
+        const DEVICE_TYPE = getDeviceType();
+
+        /**
+         * 在已加载的 voices 列表中，按优先级挑选最佳英文音色。
+         * 优先级：Enhanced/Premium > 偏好名称列表 > 任意 en-US > 任意 en-*
+         */
+        function pickBestEnglishVoice(voices) {
+            if (!voices || voices.length === 0) return null;
+
+            // 苹果设备上常见的高质量音色名（可按喜好调整顺序）
+            const preferredNames = ['Ava', 'Samantha', 'Karen', 'Moira', 'Tessa', 'Allison', 'Susan', 'Zoe', 'Nicky'];
+            const qualityKeywords = ['enhanced', 'premium', 'neural'];
+
+            // 1. Enhanced/Premium 优先
+            for (const kw of qualityKeywords) {
+                for (const name of preferredNames) {
+                    const v = voices.find(v =>
+                        v.lang.startsWith('en') &&
+                        v.name.toLowerCase().includes(name.toLowerCase()) &&
+                        v.name.toLowerCase().includes(kw)
+                    );
+                    if (v) return v;
+                }
+                // 任意含质量关键词的英文音色
+                const v = voices.find(v => v.lang.startsWith('en') && v.name.toLowerCase().includes(kw));
+                if (v) return v;
+            }
+
+            // 2. 偏好名称（无质量标记）
+            for (const name of preferredNames) {
+                const v = voices.find(v =>
+                    v.lang.startsWith('en') &&
+                    v.name.toLowerCase().includes(name.toLowerCase())
+                );
+                if (v) return v;
+            }
+
+            // 3. 任意 en-US
+            const enUS = voices.find(v => v.lang === 'en-US');
+            if (enUS) return enUS;
+
+            // 4. 任意英文
+            return voices.find(v => v.lang.startsWith('en')) || null;
+        }
+
+        /**
+         * 主朗读函数。
+         * - iPhone：沿用原有直接 speak() 方式（原已能自动用好音色）。
+         * - iPad / 其他：异步等待 voices 列表加载完毕后，主动挑选最优音色。
+         */
+        function speakWord(word) {
+            window.speechSynthesis.cancel();
+
+            const utterance = new SpeechSynthesisUtterance(word);
+            utterance.lang = 'en-US';
+            utterance.rate = 0.9;
+
+            if (DEVICE_TYPE === 'iPhone') {
+                // iPhone 维持原逻辑，系统会自动匹配已设置的 Ava Enhanced
+                window.speechSynthesis.speak(utterance);
+                return;
+            }
+
+            // iPad / 其他平台：主动获取并指定最优音色
+            const doSpeak = () => {
+                const voices = window.speechSynthesis.getVoices();
+                const best = pickBestEnglishVoice(voices);
+                if (best) {
+                    utterance.voice = best;
+                    voiceDebug.innerText = `🔊 音色: ${best.name} (${best.lang})`;
+                } else {
+                    voiceDebug.innerText = '🔊 音色: 系统默认';
+                }
+                window.speechSynthesis.speak(utterance);
+            };
+
+            const voices = window.speechSynthesis.getVoices();
+            if (voices && voices.length > 0) {
+                // voices 已就绪，直接选
+                doSpeak();
+            } else {
+                // voices 尚未加载，等 voiceschanged 事件（iPad 常见情况）
+                const onVoicesReady = () => {
+                    window.speechSynthesis.onvoiceschanged = null;
+                    doSpeak();
+                };
+                window.speechSynthesis.onvoiceschanged = onVoicesReady;
+                // 保险：2秒后若还没触发，强制用默认音色播放
+                setTimeout(() => {
+                    if (window.speechSynthesis.onvoiceschanged === onVoicesReady) {
+                        window.speechSynthesis.onvoiceschanged = null;
+                        voiceDebug.innerText = '🔊 音色: 超时，使用默认';
+                        window.speechSynthesis.speak(utterance);
+                    }
+                }, 2000);
+            }
+        }
+
+        // ============================================================
+        // 以下为原有代码，未作任何改动
+        // ============================================================
 
         const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
         let recognition = null;
@@ -124,7 +248,6 @@
                 let transcript = event.results[0][0].transcript.toLowerCase();
                 rawTranscriptDisplay.innerText = `[听到内容]: "${transcript}"`;
                 
-                // 【V4.4.0 核心升级：使用 "zip" 作为空格命令】
                 let processed = transcript.replace(/\bzip\b/g, '_');
                 let word = processed.replace(/[^a-z\s_]/g, ''); 
                 word = word.replace(/_/g, ' ').replace(/\s+/g, ' ').trim();
@@ -280,107 +403,6 @@
             }
         }
 
-        // ==================== 语音合成增强 (iPad 专用高质量音色) ====================
-        // 设备检测
-        function isIPhone() {
-            return /iPhone/i.test(navigator.userAgent);
-        }
-
-        function isIPad() {
-            // 检测 iPad (包括 iPad Pro 2020+ 伪装成 Mac)
-            return /iPad/i.test(navigator.userAgent) || 
-                   (/Mac/i.test(navigator.userAgent) && navigator.maxTouchPoints > 1 && !/iPhone/i.test(navigator.userAgent));
-        }
-
-        // 高质量语音选择器 (为 iPad 准备)
-        function speakWithSelectedVoice(word, voices) {
-            // 筛选英文语音 (lang 包含 'en')
-            const englishVoices = voices.filter(v => v.lang && v.lang.includes('en'));
-            let selectedVoice = null;
-
-            // 优先级匹配 (越靠前音质越好，针对 iOS 常用优质语音)
-            const matchers = [
-                (v) => v.name.includes('Ava') && v.name.includes('Enhanced'),  // Ava Enhanced (顶级)
-                (v) => v.name.includes('Ava'),                                 // Ava (通常也很好)
-                (v) => v.name.includes('Enhanced'),                            // 任何 Enhanced 版本 (Samantha Enhanced等)
-                (v) => v.name.includes('Samantha') || v.name.includes('Premium'), // Samantha 或 Premium
-                (v) => v.lang === 'en-US'                                      // 保底: 第一个美式英语
-            ];
-
-            for (let matcher of matchers) {
-                selectedVoice = englishVoices.find(matcher);
-                if (selectedVoice) break;
-            }
-
-            if (!selectedVoice && englishVoices.length > 0) {
-                selectedVoice = englishVoices[0]; // 最坏情况选第一个英文语音
-            }
-
-            const utterance = new SpeechSynthesisUtterance(word);
-            utterance.lang = 'en-US';
-            utterance.rate = 0.9;
-            if (selectedVoice) utterance.voice = selectedVoice;
-            window.speechSynthesis.speak(utterance);
-        }
-
-        // iPad 专用: 安全获取 voices 并播放 (处理异步加载)
-        function speakWithGoodVoice(word) {
-            window.speechSynthesis.cancel(); // 先取消任何正在播放的语音
-
-            const voices = window.speechSynthesis.getVoices();
-            if (voices.length > 0) {
-                speakWithSelectedVoice(word, voices);
-            } else {
-                // voices 尚未加载，等待 voiceschanged 事件 (设置超时防止卡死)
-                let timeout = setTimeout(() => {
-                    window.speechSynthesis.onvoiceschanged = null;
-                    // 超时后降级: 无指定 voice (系统默认)
-                    const utterance = new SpeechSynthesisUtterance(word);
-                    utterance.lang = 'en-US';
-                    utterance.rate = 0.9;
-                    window.speechSynthesis.speak(utterance);
-                }, 600);
-
-                window.speechSynthesis.onvoiceschanged = function() {
-                    clearTimeout(timeout);
-                    window.speechSynthesis.onvoiceschanged = null;
-                    const newVoices = window.speechSynthesis.getVoices();
-                    if (newVoices.length > 0) {
-                        speakWithSelectedVoice(word, newVoices);
-                    } else {
-                        // 仍然为空，fallback
-                        const utterance = new SpeechSynthesisUtterance(word);
-                        utterance.lang = 'en-US';
-                        utterance.rate = 0.9;
-                        window.speechSynthesis.speak(utterance);
-                    }
-                };
-            }
-        }
-
-        // ==================== 新版 speakWord (区分 iPhone / iPad) ====================
-        // 完全覆盖旧版函数，保证 iPhone 原有行为不变，iPad 使用增强逻辑
-        function speakWord(word) {
-            if (isIPhone()) {
-                // iPhone: 保持原有简洁调用 (默认语音就是 Ava Enhanced)
-                window.speechSynthesis.cancel();
-                const utterance = new SpeechSynthesisUtterance(word);
-                utterance.lang = 'en-US';
-                utterance.rate = 0.9;
-                window.speechSynthesis.speak(utterance);
-            } else if (isIPad()) {
-                // iPad: 使用高质量语音选择逻辑
-                speakWithGoodVoice(word);
-            } else {
-                // 其他设备 (Windows/Android等) 保持原有方式，避免意外变化
-                window.speechSynthesis.cancel();
-                const utterance = new SpeechSynthesisUtterance(word);
-                utterance.lang = 'en-US';
-                utterance.rate = 0.9;
-                window.speechSynthesis.speak(utterance);
-            }
-        }
-
         function generateCSV(vocabData, fileName) {
             let csvContent = "\uFEFF归档名称,单词,释义\n";
             for (const archive in vocabData) {
@@ -458,6 +480,11 @@
             });
         }
         renderVocabList();
+
+        // 页面加载后预热 voices 列表（解决 iPad 首次调用延迟问题）
+        if (DEVICE_TYPE !== 'iPhone') {
+            window.speechSynthesis.getVoices();
+        }
     </script>
 </body>
 </html>
