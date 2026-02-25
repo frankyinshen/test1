@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>语音拼写生词本 v4.4.2</title>
+    <title>语音拼写生词本 v4.4.3</title>
     <style>
         body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; max-width: 500px; margin: 0 auto; padding: 20px; background: #f4f7f6; color: #333; }
         .card { background: white; padding: 25px 20px; border-radius: 16px; box-shadow: 0 8px 20px rgba(0,0,0,0.06); margin-bottom: 20px; text-align: center; }
@@ -34,7 +34,7 @@
         input:checked + .slider { background: #007aff; }
         input:checked + .slider:before { transform: translateX(22px); }
         .tts-sub { margin-top: 8px; font-size: 12px; color: #636366; display: flex; align-items: center; justify-content: center; gap: 6px; flex-wrap: wrap; }
-        .tts-sub select { border: 1px solid #d1d1d6; border-radius: 8px; padding: 3px 8px; font-size: 12px; background: white; color: #333; max-width: 220px; }
+        .tts-sub select { border: 1px solid #d1d1d6; border-radius: 8px; padding: 3px 8px; font-size: 12px; background: white; color: #333; max-width: 240px; }
         #voiceStatus { margin-top: 6px; font-size: 11px; color: #aaa; min-height: 14px; }
 
         /* 调试 */
@@ -67,7 +67,7 @@
 <div class="card">
     <h2>
         🎙️ 语音拼写生词本
-        <span class="version-tag">v4.4.2</span>
+        <span class="version-tag">v4.4.3</span>
     </h2>
     <div class="input-group"><label for="archiveName">归档名称:</label><input type="text" id="archiveName"></div>
     <button id="recordBtn">按住开始拼写字母</button>
@@ -84,7 +84,7 @@
                 <input type="checkbox" id="ttsToggle">
                 <span class="slider"></span>
             </label>
-            <span class="tts-lbl" id="lblOnline">🌐 在线真人TTS</span>
+            <span class="tts-lbl" id="lblOnline">🌐 在线TTS</span>
         </div>
         <div class="tts-sub" id="systemVoiceSub">
             音色选择:
@@ -93,16 +93,14 @@
         <div class="tts-sub" id="onlineVoiceSub" style="display:none;">
             在线音色:
             <select id="onlineVoiceSelect">
-                <option value="Joanna">Joanna（美式女声⭐）</option>
-                <option value="Salli">Salli（美式女声）</option>
-                <option value="Kimberly">Kimberly（美式女声）</option>
-                <option value="Kendra">Kendra（美式女声）</option>
-                <option value="Matthew">Matthew（美式男声）</option>
-                <option value="Amy">Amy（英式女声）</option>
-                <option value="Brian">Brian（英式男声）</option>
-                <option value="Emma">Emma（英式女声）</option>
-                <option value="Nicole">Nicole（澳洲女声）</option>
-                <option value="Russell">Russell（澳洲男声）</option>
+                <option value="youdao_en">有道·英语女声（国内推荐⭐）</option>
+                <option value="youdao_en2">有道·英语男声</option>
+                <option value="stream_Joanna">Polly·Joanna（美式女声）</option>
+                <option value="stream_Salli">Polly·Salli（美式女声）</option>
+                <option value="stream_Matthew">Polly·Matthew（美式男声）</option>
+                <option value="stream_Amy">Polly·Amy（英式女声）</option>
+                <option value="stream_Brian">Polly·Brian（英式男声）</option>
+                <option value="stream_Nicole">Polly·Nicole（澳洲女声）</option>
             </select>
         </div>
         <div id="voiceStatus"></div>
@@ -147,6 +145,8 @@
         return 'other';
     }
     const DEVICE_TYPE = getDeviceType();
+    // 是否是触摸设备（iPhone / iPad）
+    const IS_TOUCH = (DEVICE_TYPE === 'iPhone' || DEVICE_TYPE === 'iPad');
 
     // ── TTS 切换 ──
     ttsToggle.addEventListener('change', () => {
@@ -159,28 +159,24 @@
     });
 
     // ── 加载系统音色到下拉列表 ──
-    // 优先排序：en-US > en-GB > en-AU；名字含 Shelley/Kathy/Daniel 排前面
     function loadSystemVoices() {
         const voices = window.speechSynthesis.getVoices();
         if (!voices || voices.length === 0) return;
         const enVoices = voices.filter(v => v.lang.startsWith('en'));
         if (enVoices.length === 0) return;
-
-        // 排序：en-US 优先，再按名字字母
         enVoices.sort((a, b) => {
             const score = v => v.lang === 'en-US' ? 0 : v.lang === 'en-GB' ? 1 : 2;
             return score(a) - score(b) || a.name.localeCompare(b.name);
         });
-
         systemVoiceSelect.innerHTML = '';
-        const preferred = ['Shelley', 'Kathy', 'Samantha', 'Daniel'];
         enVoices.forEach(v => {
             const opt = document.createElement('option');
             opt.value = v.name;
             opt.textContent = `${v.name} (${v.lang})`;
             systemVoiceSelect.appendChild(opt);
         });
-        // 默认选第一个 preferred 能找到的
+        // 默认选 Kathy(en-US) > Sandy(en-US) > 第一个en-US
+        const preferred = ['Kathy', 'Sandy', 'Samantha'];
         for (const name of preferred) {
             const found = enVoices.find(v => v.name === name && v.lang === 'en-US')
                        || enVoices.find(v => v.name === name);
@@ -205,18 +201,14 @@
     function speakSystem(word) {
         window.speechSynthesis.cancel();
         if (currentAudio) { currentAudio.pause(); currentAudio = null; }
-
         const utterance = new SpeechSynthesisUtterance(word);
         utterance.lang = 'en-US';
         utterance.rate = 0.9;
 
         if (DEVICE_TYPE === 'iPhone') {
-            // iPhone 原逻辑，系统自动用 Ava Enhanced
             window.speechSynthesis.speak(utterance);
             return;
         }
-
-        // iPad / 其他：用下拉选中的音色
         const selectedName = systemVoiceSelect.value;
         const voices = window.speechSynthesis.getVoices();
         const chosen = voices.find(v => v.name === selectedName) || null;
@@ -229,23 +221,47 @@
         window.speechSynthesis.speak(utterance);
     }
 
-    // 在线 TTS（StreamElements，免费，AWS Polly 音质）
+    // 在线 TTS
+    // 主线：有道词典（国内稳定）；Polly 系列备用（需翻墙）
     function speakOnline(word) {
         window.speechSynthesis.cancel();
         if (currentAudio) { currentAudio.pause(); currentAudio = null; }
 
-        const voice = onlineVoiceSelect.value;
-        const url = `https://api.streamelements.com/kappa/v2/speech?voice=${voice}&text=${encodeURIComponent(word)}`;
-        voiceStatus.innerText = `⏳ 加载中 (${voice})...`;
+        const val = onlineVoiceSelect.value;
+        let url = '';
 
+        if (val === 'youdao_en') {
+            // 有道·女声 (type=2 美式女声, type=1 英式女声)
+            url = `https://dict.youdao.com/dictvoice?audio=${encodeURIComponent(word)}&type=2`;
+        } else if (val === 'youdao_en2') {
+            url = `https://dict.youdao.com/dictvoice?audio=${encodeURIComponent(word)}&type=1`;
+        } else {
+            // Polly / StreamElements
+            const voice = val.replace('stream_', '');
+            url = `https://api.streamelements.com/kappa/v2/speech?voice=${voice}&text=${encodeURIComponent(word)}`;
+        }
+
+        voiceStatus.innerText = `⏳ 加载中...`;
         const audio = new Audio(url);
         currentAudio = audio;
         audio.playbackRate = 0.9;
         audio.oncanplaythrough = () => {
-            audio.play().catch(() => { voiceStatus.innerText = '⚠️ 播放失败，请检查网络'; });
-            voiceStatus.innerText = `🔊 在线: ${voice}`;
+            audio.play().catch(() => { voiceStatus.innerText = '⚠️ 浏览器阻止自动播放，请再点一次🔊'; });
+            voiceStatus.innerText = `🔊 在线: ${val.replace('stream_','').replace('youdao_en','有道')}`;
         };
-        audio.onerror = () => { voiceStatus.innerText = '❌ 在线TTS请求失败，请检查网络'; };
+        audio.onerror = () => {
+            voiceStatus.innerText = '❌ 在线TTS失败，已自动改用系统音色';
+            // 失败时自动回退到系统音色
+            speakSystem(word);
+        };
+        // 3秒超时保险
+        setTimeout(() => {
+            if (currentAudio === audio && audio.readyState < 3) {
+                audio.pause();
+                voiceStatus.innerText = '⏱ 超时，已改用系统音色';
+                speakSystem(word);
+            }
+        }, 3000);
     }
 
     // ── 调试按钮 ──
@@ -264,13 +280,11 @@
         else {
             voiceDebug.style.display = 'block';
             voiceDebug.innerText = '⏳ 正在加载音色列表...';
-            window.speechSynthesis.onvoiceschanged = () => {
-                window.speechSynthesis.onvoiceschanged = null; doList();
-            };
+            window.speechSynthesis.onvoiceschanged = () => { window.speechSynthesis.onvoiceschanged = null; doList(); };
         }
     });
 
-    // ── 语音识别（原有逻辑不变）──
+    // ── 语音识别 ──
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
     let recognition = null;
     let isSystemBusy = false;
@@ -307,27 +321,56 @@
             recordBtn.innerText = "🛑 正在聆听...";
             statusText.innerText = "请开始拼读字母...";
         };
+
         recognition.onresult = async (event) => {
             clearTimeout(fallbackTimer);
-            let transcript = event.results[0][0].transcript.toLowerCase();
+            let transcript = event.results[0][0].transcript.toLowerCase().trim();
             rawTranscriptDisplay.innerText = `[听到内容]: "${transcript}"`;
-            let processed = transcript.replace(/\bzip\b/g, '_');
-            let word = processed.replace(/[^a-z\s_]/g, '');
-            word = word.replace(/_/g, ' ').replace(/\s+/g, ' ').trim();
+
+            // 【Windows修复】若识别结果是每个字母用空格隔开（如 "t h i n k"），直接合并
+            const rawTokens = transcript.split(/\s+/).filter(t => t.length > 0);
+            let word;
+            if (rawTokens.length > 1 && rawTokens.every(t => t.length === 1 && /[a-z]/.test(t))) {
+                word = rawTokens.join('');
+            } else {
+                let processed = transcript.replace(/\bzip\b/g, '_');
+                word = processed.replace(/[^a-z\s_]/g, '');
+                word = word.replace(/_/g, ' ').replace(/\s+/g, ' ').trim();
+                // 兜底再检测一次（Windows有时会输出 "t.h.i.n.k" 等变体）
+                const tokens2 = word.split(' ').filter(t => t.length > 0);
+                if (tokens2.length > 1 && tokens2.every(t => t.length === 1)) {
+                    word = tokens2.join('');
+                }
+            }
+
             if (!word) { statusText.innerText = "⚠️ 未识别出有效字符。"; return; }
             resultWordDisplay.innerText = word;
             statusText.innerText = "正在翻译查询中...";
             await processWord(word);
         };
-        recognition.onerror = (event) => { clearTimeout(fallbackTimer); statusText.innerText = `❌ ${event.error}`; };
+
+        recognition.onerror = (event) => {
+            clearTimeout(fallbackTimer);
+            if (event.error === 'aborted') {
+                statusText.innerText = "⚠️ 已取消，请重新按住";
+            } else if (event.error === 'no-speech') {
+                statusText.innerText = "⚠️ 未检测到语音，请重试";
+            } else {
+                statusText.innerText = `❌ 识别错误: ${event.error}`;
+            }
+        };
+
         recognition.onend = () => {
             clearTimeout(fallbackTimer);
             isSystemBusy = false;
             recordBtn.classList.remove('busy', 'recording');
             recordBtn.innerText = "按住开始拼写字母";
-            if (statusText.innerText.includes("等待系统回传")) statusText.innerText = "⚠️ 系统未返回数据，请重读。";
+            if (statusText.innerText.includes("等待系统回传")) {
+                statusText.innerText = "⚠️ 系统未返回数据，请重读";
+            }
         };
-        try { recognition.start(); } catch (err) { isSystemBusy = false; }
+
+        try { recognition.start(); } catch (err) { isSystemBusy = false; statusText.innerText = "❌ 启动失败，请重试"; }
     };
 
     const stopRecording = (e) => {
@@ -348,14 +391,18 @@
         }, 2500);
     };
 
+    // ── 事件绑定：触摸设备不绑 mouseleave（防误触）──
     recordBtn.addEventListener('mousedown', startRecording);
     recordBtn.addEventListener('touchstart', startRecording, {passive: false});
     recordBtn.addEventListener('mouseup', stopRecording);
     recordBtn.addEventListener('touchend', stopRecording);
-    recordBtn.addEventListener('mouseleave', stopRecording);
     recordBtn.addEventListener('touchcancel', stopRecording);
+    // mouseleave 仅在非触摸设备绑定（iPhone/iPad 上会误触发导致提前结束）
+    if (!IS_TOUCH) {
+        recordBtn.addEventListener('mouseleave', stopRecording);
+    }
 
-    // ── 词汇处理（原有逻辑不变）──
+    // ── 词汇处理 ──
     async function processWord(word, specificArchive = null) {
         let enMeaning = "暂无英文释义。", cnMeaning = "暂无中文释义。";
         const safeWordUrl = encodeURIComponent(word);
