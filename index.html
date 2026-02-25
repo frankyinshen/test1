@@ -3,531 +3,531 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>语音拼写生词本 v4.4.1</title>
+    <title>语音拼写生词本 v4.4.2</title>
     <style>
         body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; max-width: 500px; margin: 0 auto; padding: 20px; background: #f4f7f6; color: #333; }
         .card { background: white; padding: 25px 20px; border-radius: 16px; box-shadow: 0 8px 20px rgba(0,0,0,0.06); margin-bottom: 20px; text-align: center; }
         h2 { margin-top: 0; font-size: 20px; color: #1c1c1e; display: flex; justify-content: space-between; align-items: center;}
         .version-tag { font-size: 12px; background: #000; padding: 3px 10px; border-radius: 12px; color: #fff; font-weight: bold; letter-spacing: 0.5px;}
-        
+
         #recordBtn { background: #007aff; color: white; border: none; padding: 18px 30px; font-size: 18px; font-weight: 600; border-radius: 50px; cursor: pointer; user-select: none; transition: all 0.2s; width: 100%; box-shadow: 0 4px 12px rgba(0,122,255,0.3); -webkit-touch-callout: none; -webkit-tap-highlight-color: transparent;}
         #recordBtn.recording { background: #ff3b30; box-shadow: 0 4px 12px rgba(255,59,48,0.4); transform: scale(0.96); }
         #recordBtn.busy { background: #ff9500; box-shadow: 0 4px 12px rgba(255,149,0,0.4); pointer-events: none; transform: none; }
 
         .btn-export-all { background: #34c759; color: white; border: none; padding: 8px 15px; font-size: 14px; font-weight: 600; border-radius: 8px; cursor: pointer; }
-        
+
         .status { margin-top: 15px; font-size: 14px; color: #8e8e93; min-height: 20px; font-weight: 500; }
         #rawTranscript { margin-top: 8px; font-size: 13px; color: #ff9500; display: block; min-height: 15px; font-weight: bold;}
         #resultWord { font-size: 40px; font-weight: 800; margin: 15px 0; color: #1c1c1e; letter-spacing: 2px; }
         #meaning { font-size: 15px; color: #3a3a3c; min-height: 45px; background: #f2f2f7; padding: 12px; border-radius: 12px; line-height: 1.5; text-align: left;}
         .cn-meaning { color: #d9534f; font-weight: bold; margin-bottom: 5px; display: block; }
-        
-        /* 音色调试面板 */
+
+        /* TTS 切换区 */
+        .tts-box { margin-top: 14px; background: #f2f2f7; border-radius: 14px; padding: 12px 16px; }
+        .tts-toggle-row { display: flex; align-items: center; justify-content: center; gap: 10px; }
+        .tts-lbl { font-size: 13px; font-weight: 600; color: #bbb; transition: color .2s; }
+        .tts-lbl.active { color: #007aff; }
+        .switch { position: relative; display: inline-block; width: 50px; height: 28px; flex-shrink: 0; }
+        .switch input { opacity: 0; width: 0; height: 0; }
+        .slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background: #ccc; border-radius: 28px; transition: .3s; }
+        .slider:before { position: absolute; content: ""; height: 22px; width: 22px; left: 3px; bottom: 3px; background: white; border-radius: 50%; transition: .3s; box-shadow: 0 1px 4px rgba(0,0,0,0.2); }
+        input:checked + .slider { background: #007aff; }
+        input:checked + .slider:before { transform: translateX(22px); }
+        .tts-sub { margin-top: 8px; font-size: 12px; color: #636366; display: flex; align-items: center; justify-content: center; gap: 6px; flex-wrap: wrap; }
+        .tts-sub select { border: 1px solid #d1d1d6; border-radius: 8px; padding: 3px 8px; font-size: 12px; background: white; color: #333; max-width: 220px; }
+        #voiceStatus { margin-top: 6px; font-size: 11px; color: #aaa; min-height: 14px; }
+
+        /* 调试 */
         #voiceDebug { font-size: 11px; color: #555; margin-top: 8px; white-space: pre-wrap; text-align: left; background: #f2f2f7; padding: 8px 10px; border-radius: 8px; display: none; word-break: break-all; }
-        #listVoicesBtn { margin-top: 10px; background: #f2f2f7; border: none; padding: 7px 14px; border-radius: 8px; font-size: 13px; cursor: pointer; color: #555; }
-        
+        #listVoicesBtn { margin-top: 8px; background: #f2f2f7; border: none; padding: 7px 14px; border-radius: 8px; font-size: 13px; cursor: pointer; color: #555; }
+
         .input-group { text-align: left; margin-bottom: 20px; }
         label { font-size: 14px; font-weight: 600; color: #636366; display: block; margin-bottom: 8px; }
         input[type="text"] { width: 100%; padding: 12px; border: 1px solid #d1d1d6; border-radius: 10px; box-sizing: border-box; font-size: 16px; outline: none; }
-        
+
         .word-list { text-align: left; }
         .archive-group { margin-top: 25px; border: 1px solid #e5e5ea; border-radius: 12px; overflow: hidden; }
         .archive-header { background: #f8f8f8; padding: 12px 15px; font-weight: 700; font-size: 15px; color: #1c1c1e; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #e5e5ea;}
         .archive-title { flex: 1; display: flex; align-items: center; gap: 5px; }
         .archive-actions { display: flex; gap: 8px; }
-        
         .word-item { padding: 15px; border-bottom: 1px solid #f2f2f7; display: flex; justify-content: space-between; align-items: flex-start;}
         .word-item:last-child { border-bottom: none; }
         .word-content { display: flex; flex-direction: column; flex: 1; margin-right: 10px; }
         .word-header { display: flex; align-items: center; gap: 8px; }
         .word-word { font-size: 18px; font-weight: 700; color: #007aff; }
-        
         .audio-btn { background: #e5f1ff; color: #007aff; border: none; border-radius: 50%; width: 26px; height: 26px; display: flex; align-items: center; justify-content: center; font-size: 12px; cursor: pointer; }
-        
         .word-meaning { font-size: 14px; color: #636366; margin-top: 6px; line-height: 1.5; }
         .word-meaning-cn { color: #d9534f; font-weight: 600; margin-bottom: 3px; }
-        
         .action-btns { display: flex; gap: 5px; }
         .icon-btn { background: #f2f2f7; border: none; font-size: 14px; cursor: pointer; padding: 6px 10px; border-radius: 8px; }
     </style>
 </head>
 <body>
 
-    <div class="card">
-        <h2>
-            🎙️ 语音拼写生词本
-            <span class="version-tag">v4.4.1-iPad11111</span>
-        </h2>
-        <div class="input-group"><label for="archiveName">归档名称:</label><input type="text" id="archiveName"></div>
-        <button id="recordBtn">按住开始拼写字母</button>
-        <div class="status" id="statusText">准备就绪...</div>
-        <div id="rawTranscript"></div>
-        <div id="resultWord">...</div>
-        <div id="meaning">需要空格时，请读 "zip"</div>
-        <div id="voiceDebug"></div>
-        <button id="listVoicesBtn">🔍 列出所有英文音色（调试用）</button>
+<div class="card">
+    <h2>
+        🎙️ 语音拼写生词本
+        <span class="version-tag">v4.4.2</span>
+    </h2>
+    <div class="input-group"><label for="archiveName">归档名称:</label><input type="text" id="archiveName"></div>
+    <button id="recordBtn">按住开始拼写字母</button>
+    <div class="status" id="statusText">准备就绪...</div>
+    <div id="rawTranscript"></div>
+    <div id="resultWord">...</div>
+    <div id="meaning">需要空格时，请读 "zip"</div>
+
+    <!-- TTS 切换区 -->
+    <div class="tts-box">
+        <div class="tts-toggle-row">
+            <span class="tts-lbl active" id="lblSystem">🖥 系统音色</span>
+            <label class="switch">
+                <input type="checkbox" id="ttsToggle">
+                <span class="slider"></span>
+            </label>
+            <span class="tts-lbl" id="lblOnline">🌐 在线真人TTS</span>
+        </div>
+        <div class="tts-sub" id="systemVoiceSub">
+            音色选择:
+            <select id="systemVoiceSelect"></select>
+        </div>
+        <div class="tts-sub" id="onlineVoiceSub" style="display:none;">
+            在线音色:
+            <select id="onlineVoiceSelect">
+                <option value="Joanna">Joanna（美式女声⭐）</option>
+                <option value="Salli">Salli（美式女声）</option>
+                <option value="Kimberly">Kimberly（美式女声）</option>
+                <option value="Kendra">Kendra（美式女声）</option>
+                <option value="Matthew">Matthew（美式男声）</option>
+                <option value="Amy">Amy（英式女声）</option>
+                <option value="Brian">Brian（英式男声）</option>
+                <option value="Emma">Emma（英式女声）</option>
+                <option value="Nicole">Nicole（澳洲女声）</option>
+                <option value="Russell">Russell（澳洲男声）</option>
+            </select>
+        </div>
+        <div id="voiceStatus"></div>
     </div>
 
-    <div class="card word-list">
-        <h2>📚 你的生词本 <button id="exportBtn" class="btn-export-all">💾 导出全部</button></h2>
-        <div id="vocabList"></div>
-    </div>
+    <div id="voiceDebug"></div>
+    <button id="listVoicesBtn">🔍 列出所有英文音色（调试）</button>
+</div>
 
-    <script>
-        const today = new Date().toISOString().split('T')[0];
-        document.getElementById('archiveName').value = today;
+<div class="card word-list">
+    <h2>📚 你的生词本 <button id="exportBtn" class="btn-export-all">💾 导出全部</button></h2>
+    <div id="vocabList"></div>
+</div>
 
-        const recordBtn = document.getElementById('recordBtn');
-        const exportBtn = document.getElementById('exportBtn');
-        const statusText = document.getElementById('statusText');
-        const rawTranscriptDisplay = document.getElementById('rawTranscript');
-        const resultWordDisplay = document.getElementById('resultWord');
-        const meaningDisplay = document.getElementById('meaning');
-        const vocabListDisplay = document.getElementById('vocabList');
-        const voiceDebug = document.getElementById('voiceDebug');
+<script>
+    const today = new Date().toISOString().split('T')[0];
+    document.getElementById('archiveName').value = today;
 
-        // ============================================================
-        // 【v4.4.1 新增】设备检测 & 最优音色选择
-        // ============================================================
+    const recordBtn            = document.getElementById('recordBtn');
+    const exportBtn            = document.getElementById('exportBtn');
+    const statusText           = document.getElementById('statusText');
+    const rawTranscriptDisplay = document.getElementById('rawTranscript');
+    const resultWordDisplay    = document.getElementById('resultWord');
+    const meaningDisplay       = document.getElementById('meaning');
+    const vocabListDisplay     = document.getElementById('vocabList');
+    const voiceDebug           = document.getElementById('voiceDebug');
+    const voiceStatus          = document.getElementById('voiceStatus');
+    const ttsToggle            = document.getElementById('ttsToggle');
+    const lblSystem            = document.getElementById('lblSystem');
+    const lblOnline            = document.getElementById('lblOnline');
+    const systemVoiceSub       = document.getElementById('systemVoiceSub');
+    const onlineVoiceSub       = document.getElementById('onlineVoiceSub');
+    const systemVoiceSelect    = document.getElementById('systemVoiceSelect');
+    const onlineVoiceSelect    = document.getElementById('onlineVoiceSelect');
 
-        /**
-         * 检测当前设备类型。
-         * 注意：iPadOS 13+ 将 UA 伪装成 Macintosh，需要用 maxTouchPoints 来区分。
-         */
-        function getDeviceType() {
-            const ua = navigator.userAgent;
-            if (/iPad/.test(ua)) return 'iPad';
-            if (/iPhone/.test(ua)) return 'iPhone';
-            // iPadOS 13+ 伪装成 Mac，但触点数 > 1
-            if (/Macintosh/.test(ua) && navigator.maxTouchPoints > 1) return 'iPad';
-            return 'other';
+    // ── 设备检测 ──
+    function getDeviceType() {
+        const ua = navigator.userAgent;
+        if (/iPad/.test(ua)) return 'iPad';
+        if (/iPhone/.test(ua)) return 'iPhone';
+        if (/Macintosh/.test(ua) && navigator.maxTouchPoints > 1) return 'iPad';
+        return 'other';
+    }
+    const DEVICE_TYPE = getDeviceType();
+
+    // ── TTS 切换 ──
+    ttsToggle.addEventListener('change', () => {
+        const online = ttsToggle.checked;
+        lblSystem.classList.toggle('active', !online);
+        lblOnline.classList.toggle('active', online);
+        systemVoiceSub.style.display = online ? 'none' : 'flex';
+        onlineVoiceSub.style.display = online ? 'flex' : 'none';
+        voiceStatus.innerText = '';
+    });
+
+    // ── 加载系统音色到下拉列表 ──
+    // 优先排序：en-US > en-GB > en-AU；名字含 Shelley/Kathy/Daniel 排前面
+    function loadSystemVoices() {
+        const voices = window.speechSynthesis.getVoices();
+        if (!voices || voices.length === 0) return;
+        const enVoices = voices.filter(v => v.lang.startsWith('en'));
+        if (enVoices.length === 0) return;
+
+        // 排序：en-US 优先，再按名字字母
+        enVoices.sort((a, b) => {
+            const score = v => v.lang === 'en-US' ? 0 : v.lang === 'en-GB' ? 1 : 2;
+            return score(a) - score(b) || a.name.localeCompare(b.name);
+        });
+
+        systemVoiceSelect.innerHTML = '';
+        const preferred = ['Shelley', 'Kathy', 'Samantha', 'Daniel'];
+        enVoices.forEach(v => {
+            const opt = document.createElement('option');
+            opt.value = v.name;
+            opt.textContent = `${v.name} (${v.lang})`;
+            systemVoiceSelect.appendChild(opt);
+        });
+        // 默认选第一个 preferred 能找到的
+        for (const name of preferred) {
+            const found = enVoices.find(v => v.name === name && v.lang === 'en-US')
+                       || enVoices.find(v => v.name === name);
+            if (found) { systemVoiceSelect.value = found.name; break; }
+        }
+    }
+    window.speechSynthesis.onvoiceschanged = loadSystemVoices;
+    loadSystemVoices();
+
+    // ── 朗读入口 ──
+    let currentAudio = null;
+
+    function speakWord(word) {
+        if (ttsToggle.checked) {
+            speakOnline(word);
+        } else {
+            speakSystem(word);
+        }
+    }
+
+    // 系统 TTS
+    function speakSystem(word) {
+        window.speechSynthesis.cancel();
+        if (currentAudio) { currentAudio.pause(); currentAudio = null; }
+
+        const utterance = new SpeechSynthesisUtterance(word);
+        utterance.lang = 'en-US';
+        utterance.rate = 0.9;
+
+        if (DEVICE_TYPE === 'iPhone') {
+            // iPhone 原逻辑，系统自动用 Ava Enhanced
+            window.speechSynthesis.speak(utterance);
+            return;
         }
 
-        const DEVICE_TYPE = getDeviceType();
-
-        /**
-         * 在已加载的 voices 列表中，按优先级挑选最佳英文音色。
-         * 优先级：Enhanced/Premium > 偏好名称列表 > 任意 en-US > 任意 en-*
-         */
-        function pickBestEnglishVoice(voices) {
-            if (!voices || voices.length === 0) return null;
-
-            // 质量关键词：同时覆盖英文名和中文名（系统语言为中文时音色名是中文）
-            // 例如 "Ava Enhanced" 在中文系统里叫 "Ava（优化音质）"
-            const qualityKeywords = ['enhanced', 'premium', 'neural', '优化', '增强', '高质'];
-
-            // 第一优先：名字含 Ava 且含质量关键词（精确命中用户下载的优化版 Ava）
-            for (const kw of qualityKeywords) {
-                const v = voices.find(v =>
-                    v.lang.startsWith('en') &&
-                    v.name.toLowerCase().includes('ava') &&
-                    v.name.includes(kw)   // 中文关键词区分大小写无所谓，英文用小写
-                );
-                if (v) return v;
-            }
-
-            // 第二优先：任意含质量关键词的英文音色（优化版 Samantha 等）
-            const preferredNames = ['Samantha', 'Allison', 'Susan', 'Zoe', 'Nicky', 'Moira', 'Tessa', 'Karen'];
-            for (const kw of qualityKeywords) {
-                for (const name of preferredNames) {
-                    const v = voices.find(v =>
-                        v.lang.startsWith('en') &&
-                        v.name.toLowerCase().includes(name.toLowerCase()) &&
-                        v.name.includes(kw)
-                    );
-                    if (v) return v;
-                }
-                // 任意含质量关键词的英文音色
-                const v = voices.find(v => v.lang.startsWith('en') && v.name.includes(kw));
-                if (v) return v;
-            }
-
-            // 第三优先：Ava（无质量标记，兜底）
-            const ava = voices.find(v => v.lang.startsWith('en') && v.name.toLowerCase().includes('ava'));
-            if (ava) return ava;
-
-            // 第四优先：其他偏好名称
-            for (const name of preferredNames) {
-                const v = voices.find(v =>
-                    v.lang.startsWith('en') &&
-                    v.name.toLowerCase().includes(name.toLowerCase())
-                );
-                if (v) return v;
-            }
-
-            // 兜底：任意 en-US，再任意英文
-            return voices.find(v => v.lang === 'en-US') ||
-                   voices.find(v => v.lang.startsWith('en')) || null;
+        // iPad / 其他：用下拉选中的音色
+        const selectedName = systemVoiceSelect.value;
+        const voices = window.speechSynthesis.getVoices();
+        const chosen = voices.find(v => v.name === selectedName) || null;
+        if (chosen) {
+            utterance.voice = chosen;
+            voiceStatus.innerText = `🔊 ${chosen.name} (${chosen.lang})`;
+        } else {
+            voiceStatus.innerText = '🔊 系统默认';
         }
+        window.speechSynthesis.speak(utterance);
+    }
 
-        /**
-         * 主朗读函数。
-         * - iPhone：沿用原有直接 speak() 方式（原已能自动用好音色）。
-         * - iPad / 其他：异步等待 voices 列表加载完毕后，主动挑选最优音色。
-         */
-        function speakWord(word) {
-            window.speechSynthesis.cancel();
+    // 在线 TTS（StreamElements，免费，AWS Polly 音质）
+    function speakOnline(word) {
+        window.speechSynthesis.cancel();
+        if (currentAudio) { currentAudio.pause(); currentAudio = null; }
 
-            const utterance = new SpeechSynthesisUtterance(word);
-            utterance.lang = 'en-US';
-            utterance.rate = 0.9;
+        const voice = onlineVoiceSelect.value;
+        const url = `https://api.streamelements.com/kappa/v2/speech?voice=${voice}&text=${encodeURIComponent(word)}`;
+        voiceStatus.innerText = `⏳ 加载中 (${voice})...`;
 
-            if (DEVICE_TYPE === 'iPhone') {
-                // iPhone 维持原逻辑，系统会自动匹配已设置的 Ava Enhanced
-                window.speechSynthesis.speak(utterance);
-                return;
-            }
+        const audio = new Audio(url);
+        currentAudio = audio;
+        audio.playbackRate = 0.9;
+        audio.oncanplaythrough = () => {
+            audio.play().catch(() => { voiceStatus.innerText = '⚠️ 播放失败，请检查网络'; });
+            voiceStatus.innerText = `🔊 在线: ${voice}`;
+        };
+        audio.onerror = () => { voiceStatus.innerText = '❌ 在线TTS请求失败，请检查网络'; };
+    }
 
-            // iPad / 其他平台：主动获取并指定最优音色
-            const doSpeak = () => {
-                const voices = window.speechSynthesis.getVoices();
-                const best = pickBestEnglishVoice(voices);
-                if (best) {
-                    utterance.voice = best;
-                    voiceDebug.style.display = 'block';
-                    voiceDebug.innerText = `🔊 当前音色: "${best.name}" | ${best.lang}`;
-                } else {
-                    voiceDebug.style.display = 'block';
-                    voiceDebug.innerText = '🔊 音色: 系统默认';
-                }
-                window.speechSynthesis.speak(utterance);
+    // ── 调试按钮 ──
+    document.getElementById('listVoicesBtn').addEventListener('click', () => {
+        const doList = () => {
+            const all = window.speechSynthesis.getVoices();
+            const en = all.filter(v => v.lang.startsWith('en'));
+            voiceDebug.style.display = 'block';
+            voiceDebug.innerText = en.length === 0
+                ? '⚠️ 未找到任何英文音色，请稍后再试。'
+                : `共找到 ${en.length} 个英文音色：\n` +
+                  en.map((v, i) => `${i+1}. "${v.name}" | ${v.lang}`).join('\n');
+        };
+        const voices = window.speechSynthesis.getVoices();
+        if (voices && voices.length > 0) { doList(); }
+        else {
+            voiceDebug.style.display = 'block';
+            voiceDebug.innerText = '⏳ 正在加载音色列表...';
+            window.speechSynthesis.onvoiceschanged = () => {
+                window.speechSynthesis.onvoiceschanged = null; doList();
             };
-
-            const voices = window.speechSynthesis.getVoices();
-            if (voices && voices.length > 0) {
-                // voices 已就绪，直接选
-                doSpeak();
-            } else {
-                // voices 尚未加载，等 voiceschanged 事件（iPad 常见情况）
-                const onVoicesReady = () => {
-                    window.speechSynthesis.onvoiceschanged = null;
-                    doSpeak();
-                };
-                window.speechSynthesis.onvoiceschanged = onVoicesReady;
-                // 保险：2秒后若还没触发，强制用默认音色播放
-                setTimeout(() => {
-                    if (window.speechSynthesis.onvoiceschanged === onVoicesReady) {
-                        window.speechSynthesis.onvoiceschanged = null;
-                        voiceDebug.innerText = '🔊 音色: 超时，使用默认';
-                        window.speechSynthesis.speak(utterance);
-                    }
-                }, 2000);
-            }
         }
+    });
 
-        // ============================================================
-        // 以下为原有代码，未作任何改动
-        // ============================================================
+    // ── 语音识别（原有逻辑不变）──
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    let recognition = null;
+    let isSystemBusy = false;
+    let fallbackTimer = null;
+    let hasActuallyStarted = false;
 
-        const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-        let recognition = null;
-        let isSystemBusy = false; 
-        let fallbackTimer = null; 
-        let hasActuallyStarted = false; 
+    function resetRecognition() {
+        if (recognition) {
+            recognition.onstart = null; recognition.onresult = null;
+            recognition.onerror = null; recognition.onend = null;
+            try { recognition.abort(); } catch(e){}
+            recognition = null;
+        }
+        clearTimeout(fallbackTimer);
+    }
 
-        function resetRecognition() {
-            if (recognition) {
-                recognition.onstart = null;
-                recognition.onresult = null;
-                recognition.onerror = null;
-                recognition.onend = null;
-                try { recognition.abort(); } catch(e){}
-                recognition = null;
-            }
+    const startRecording = (e) => {
+        e.preventDefault();
+        if (isSystemBusy) return;
+        isSystemBusy = true; hasActuallyStarted = false;
+        rawTranscriptDisplay.innerText = "";
+        resetRecognition();
+        if (!SpeechRecognition) { statusText.innerText = "❌ 浏览器不支持语音识别。"; isSystemBusy = false; return; }
+
+        recognition = new SpeechRecognition();
+        recognition.lang = 'en-US';
+        recognition.interimResults = false;
+        recognition.maxAlternatives = 1;
+        recognition.continuous = false;
+
+        recognition.onstart = () => {
+            hasActuallyStarted = true;
+            recordBtn.classList.add('recording');
+            recordBtn.innerText = "🛑 正在聆听...";
+            statusText.innerText = "请开始拼读字母...";
+        };
+        recognition.onresult = async (event) => {
             clearTimeout(fallbackTimer);
-        }
-
-        const startRecording = (e) => {
-            e.preventDefault();
-            if (isSystemBusy) return; 
-            isSystemBusy = true;
-            hasActuallyStarted = false; 
-            rawTranscriptDisplay.innerText = "";
-            resetRecognition();
-            if (!SpeechRecognition) { statusText.innerText = "❌ 浏览器不支持语音识别。"; isSystemBusy = false; return; }
-
-            recognition = new SpeechRecognition();
-            recognition.lang = 'en-US'; 
-            recognition.interimResults = false;
-            recognition.maxAlternatives = 1;
-            recognition.continuous = false;
-
-            recognition.onstart = () => {
-                hasActuallyStarted = true; 
-                recordBtn.classList.add('recording');
-                recordBtn.innerText = "🛑 正在聆听...";
-                statusText.innerText = "请开始拼读字母...";
-            };
-
-            recognition.onresult = async (event) => {
-                clearTimeout(fallbackTimer); 
-                let transcript = event.results[0][0].transcript.toLowerCase();
-                rawTranscriptDisplay.innerText = `[听到内容]: "${transcript}"`;
-                
-                let processed = transcript.replace(/\bzip\b/g, '_');
-                let word = processed.replace(/[^a-z\s_]/g, ''); 
-                word = word.replace(/_/g, ' ').replace(/\s+/g, ' ').trim();
-                
-                if (!word) {
-                    statusText.innerText = "⚠️ 未识别出有效字符。";
-                    return;
-                }
-
-                resultWordDisplay.innerText = word;
-                statusText.innerText = "正在翻译查询中...";
-                await processWord(word); 
-            };
-
-            recognition.onerror = (event) => {
-                clearTimeout(fallbackTimer);
-                statusText.innerText = `❌ ${event.error}`;
-            };
-
-            recognition.onend = () => {
-                clearTimeout(fallbackTimer);
-                isSystemBusy = false; 
-                recordBtn.classList.remove('busy', 'recording');
-                recordBtn.innerText = "按住开始拼写字母";
-                if(statusText.innerText.includes("等待系统回传")) {
-                    statusText.innerText = "⚠️ 系统未返回数据，请重读。";
-                }
-            };
-
-            try { recognition.start(); } catch (err) { isSystemBusy = false; }
-        };
-
-        const stopRecording = (e) => {
-            e.preventDefault();
-            if (!isSystemBusy) return; 
-            if (!hasActuallyStarted) {
-                resetRecognition(); isSystemBusy = false;
-                recordBtn.innerText = "按住开始拼写字母";
-                statusText.innerText = "权限已更新，请重新按住。";
-                return;
-            }
-            recordBtn.classList.remove('recording');
-            recordBtn.classList.add('busy');
-            recordBtn.innerText = "⏳ 接收结果中...";
-            statusText.innerText = "已松开，等待系统回传...";
-            fallbackTimer = setTimeout(() => {
-                if (isSystemBusy && recognition) { try { recognition.stop(); } catch(err) {} }
-            }, 2500); 
-        };
-
-        recordBtn.addEventListener('mousedown', startRecording);
-        recordBtn.addEventListener('touchstart', startRecording, {passive: false});
-        recordBtn.addEventListener('mouseup', stopRecording);
-        recordBtn.addEventListener('touchend', stopRecording);
-        recordBtn.addEventListener('mouseleave', stopRecording);
-        recordBtn.addEventListener('touchcancel', stopRecording);
-
-        async function processWord(word, specificArchive = null) {
-            let enMeaning = "暂无英文释义。";
-            let cnMeaning = "暂无中文释义。";
-            const safeWordUrl = encodeURIComponent(word);
-            try {
-                const transRes = await fetch(`https://api.mymemory.translated.net/get?q=${safeWordUrl}&langpair=en|zh-CN`);
-                const transData = await transRes.json();
-                if (transData && transData.responseData) {
-                    let text = transData.responseData.translatedText;
-                    if (text.toLowerCase() !== word.toLowerCase()) { cnMeaning = text; }
-                }
-                try {
-                    const dictRes = await fetch(`https://api.dictionaryapi.dev/api/v2/entries/en/${safeWordUrl}`);
-                    if (dictRes.ok) {
-                        const dictData = await dictRes.json();
-                        enMeaning = dictData[0].meanings[0].definitions[0].definition;
-                    }
-                } catch(e) {}
-                statusText.innerText = "✅ 查询成功！";
-            } catch (error) { statusText.innerText = "⚠️ 网络异常，仅保存拼写"; }
-            const combinedMeaning = `【中】${cnMeaning}\n【英】${enMeaning}`;
-            meaningDisplay.innerHTML = `<span class="cn-meaning">${cnMeaning}</span><span class="en-meaning">${enMeaning}</span>`;
+            let transcript = event.results[0][0].transcript.toLowerCase();
+            rawTranscriptDisplay.innerText = `[听到内容]: "${transcript}"`;
+            let processed = transcript.replace(/\bzip\b/g, '_');
+            let word = processed.replace(/[^a-z\s_]/g, '');
+            word = word.replace(/_/g, ' ').replace(/\s+/g, ' ').trim();
+            if (!word) { statusText.innerText = "⚠️ 未识别出有效字符。"; return; }
             resultWordDisplay.innerText = word;
-            saveWord(word, combinedMeaning, specificArchive);
+            statusText.innerText = "正在翻译查询中...";
+            await processWord(word);
+        };
+        recognition.onerror = (event) => { clearTimeout(fallbackTimer); statusText.innerText = `❌ ${event.error}`; };
+        recognition.onend = () => {
+            clearTimeout(fallbackTimer);
+            isSystemBusy = false;
+            recordBtn.classList.remove('busy', 'recording');
+            recordBtn.innerText = "按住开始拼写字母";
+            if (statusText.innerText.includes("等待系统回传")) statusText.innerText = "⚠️ 系统未返回数据，请重读。";
+        };
+        try { recognition.start(); } catch (err) { isSystemBusy = false; }
+    };
+
+    const stopRecording = (e) => {
+        e.preventDefault();
+        if (!isSystemBusy) return;
+        if (!hasActuallyStarted) {
+            resetRecognition(); isSystemBusy = false;
+            recordBtn.innerText = "按住开始拼写字母";
+            statusText.innerText = "权限已更新，请重新按住。";
+            return;
+        }
+        recordBtn.classList.remove('recording');
+        recordBtn.classList.add('busy');
+        recordBtn.innerText = "⏳ 接收结果中...";
+        statusText.innerText = "已松开，等待系统回传...";
+        fallbackTimer = setTimeout(() => {
+            if (isSystemBusy && recognition) { try { recognition.stop(); } catch(err){} }
+        }, 2500);
+    };
+
+    recordBtn.addEventListener('mousedown', startRecording);
+    recordBtn.addEventListener('touchstart', startRecording, {passive: false});
+    recordBtn.addEventListener('mouseup', stopRecording);
+    recordBtn.addEventListener('touchend', stopRecording);
+    recordBtn.addEventListener('mouseleave', stopRecording);
+    recordBtn.addEventListener('touchcancel', stopRecording);
+
+    // ── 词汇处理（原有逻辑不变）──
+    async function processWord(word, specificArchive = null) {
+        let enMeaning = "暂无英文释义。", cnMeaning = "暂无中文释义。";
+        const safeWordUrl = encodeURIComponent(word);
+        try {
+            const transRes = await fetch(`https://api.mymemory.translated.net/get?q=${safeWordUrl}&langpair=en|zh-CN`);
+            const transData = await transRes.json();
+            if (transData && transData.responseData) {
+                let text = transData.responseData.translatedText;
+                if (text.toLowerCase() !== word.toLowerCase()) cnMeaning = text;
+            }
+            try {
+                const dictRes = await fetch(`https://api.dictionaryapi.dev/api/v2/entries/en/${safeWordUrl}`);
+                if (dictRes.ok) {
+                    const dictData = await dictRes.json();
+                    enMeaning = dictData[0].meanings[0].definitions[0].definition;
+                }
+            } catch(e) {}
+            statusText.innerText = "✅ 查询成功！";
+        } catch (error) { statusText.innerText = "⚠️ 网络异常，仅保存拼写"; }
+        const combinedMeaning = `【中】${cnMeaning}\n【英】${enMeaning}`;
+        meaningDisplay.innerHTML = `<span class="cn-meaning">${cnMeaning}</span><span class="en-meaning">${enMeaning}</span>`;
+        resultWordDisplay.innerText = word;
+        saveWord(word, combinedMeaning, specificArchive);
+        renderVocabList();
+    }
+
+    function saveWord(word, meaning, specificArchive) {
+        const archiveName = specificArchive || (document.getElementById('archiveName').value || today);
+        let vocabData = JSON.parse(localStorage.getItem('myVocabBook')) || {};
+        if (!vocabData[archiveName]) vocabData[archiveName] = [];
+        vocabData[archiveName] = vocabData[archiveName].filter(w => w.word !== word);
+        vocabData[archiveName].unshift({ word, meaning });
+        localStorage.setItem('myVocabBook', JSON.stringify(vocabData));
+        let order = JSON.parse(localStorage.getItem('myVocabBook_order')) || [];
+        order = order.filter(name => name !== archiveName);
+        order.unshift(archiveName);
+        localStorage.setItem('myVocabBook_order', JSON.stringify(order));
+    }
+
+    function editWord(archive, oldWord) {
+        const newWord = prompt(`请修改 "${oldWord}"：`, oldWord);
+        if (newWord && newWord.trim() !== "" && newWord !== oldWord) {
+            const cleanWord = newWord.replace(/[^a-zA-Z\s]/g, '').replace(/\s+/g, ' ').trim().toLowerCase();
+            if (!cleanWord) { alert("只能包含英文字母和空格！"); return; }
+            let vocabData = JSON.parse(localStorage.getItem('myVocabBook')) || {};
+            vocabData[archive] = vocabData[archive].filter(item => item.word !== oldWord);
+            if (vocabData[archive].length === 0) delete vocabData[archive];
+            localStorage.setItem('myVocabBook', JSON.stringify(vocabData));
+            statusText.innerText = `正在重新查询 ${cleanWord} ...`;
+            processWord(cleanWord, archive);
+        }
+    }
+
+    function deleteWord(archive, word) {
+        if (confirm(`确定删除单词 "${word}" 吗？`)) {
+            let vocabData = JSON.parse(localStorage.getItem('myVocabBook')) || {};
+            vocabData[archive] = vocabData[archive].filter(item => item.word !== word);
+            if (vocabData[archive].length === 0) {
+                delete vocabData[archive];
+                let order = JSON.parse(localStorage.getItem('myVocabBook_order')) || [];
+                order = order.filter(name => name !== archive);
+                localStorage.setItem('myVocabBook_order', JSON.stringify(order));
+            }
+            localStorage.setItem('myVocabBook', JSON.stringify(vocabData));
             renderVocabList();
         }
+    }
 
-        function saveWord(word, meaning, specificArchive) {
-            const archiveName = specificArchive || (document.getElementById('archiveName').value || today);
+    function renameArchive(oldName) {
+        const newName = prompt("请输入新的归档名称：", oldName);
+        if (newName && newName.trim() && newName !== oldName) {
             let vocabData = JSON.parse(localStorage.getItem('myVocabBook')) || {};
-            if (!vocabData[archiveName]) vocabData[archiveName] = [];
-            vocabData[archiveName] = vocabData[archiveName].filter(w => w.word !== word);
-            vocabData[archiveName].unshift({ word, meaning });
+            if (vocabData[newName]) { alert("该归档名称已存在！"); return; }
+            vocabData[newName] = vocabData[oldName];
+            delete vocabData[oldName];
             localStorage.setItem('myVocabBook', JSON.stringify(vocabData));
             let order = JSON.parse(localStorage.getItem('myVocabBook_order')) || [];
-            order = order.filter(name => name !== archiveName);
-            order.unshift(archiveName);
+            const index = order.indexOf(oldName);
+            if (index > -1) order[index] = newName;
             localStorage.setItem('myVocabBook_order', JSON.stringify(order));
+            if (document.getElementById('archiveName').value === oldName) document.getElementById('archiveName').value = newName;
+            renderVocabList();
         }
+    }
 
-        function editWord(archive, oldWord) {
-            const newWord = prompt(`请修改 "${oldWord}"：`, oldWord);
-            if (newWord && newWord.trim() !== "" && newWord !== oldWord) {
-                const cleanWord = newWord.replace(/[^a-zA-Z\s]/g, '').replace(/\s+/g, ' ').trim().toLowerCase();
-                if(!cleanWord) { alert("只能包含英文字母和空格！"); return; }
-                let vocabData = JSON.parse(localStorage.getItem('myVocabBook')) || {};
-                vocabData[archive] = vocabData[archive].filter(item => item.word !== oldWord);
-                if (vocabData[archive].length === 0) delete vocabData[archive];
-                localStorage.setItem('myVocabBook', JSON.stringify(vocabData));
-                statusText.innerText = `正在重新查询 ${cleanWord} ...`;
-                processWord(cleanWord, archive); 
-            }
-        }
-
-        function deleteWord(archive, word) {
-            if(confirm(`确定删除单词 "${word}" 吗？`)) {
-                let vocabData = JSON.parse(localStorage.getItem('myVocabBook')) || {};
-                vocabData[archive] = vocabData[archive].filter(item => item.word !== word);
-                if (vocabData[archive].length === 0) {
-                    delete vocabData[archive];
-                    let order = JSON.parse(localStorage.getItem('myVocabBook_order')) || [];
-                    order = order.filter(name => name !== archive);
-                    localStorage.setItem('myVocabBook_order', JSON.stringify(order));
-                }
-                localStorage.setItem('myVocabBook', JSON.stringify(vocabData));
-                renderVocabList();
-            }
-        }
-        
-        function renameArchive(oldName) {
-            const newName = prompt("请输入新的归档名称：", oldName);
-            if (newName && newName.trim() && newName !== oldName) {
-                let vocabData = JSON.parse(localStorage.getItem('myVocabBook')) || {};
-                if (vocabData[newName]) { alert("该归档名称已存在！"); return; }
-                vocabData[newName] = vocabData[oldName];
-                delete vocabData[oldName];
-                localStorage.setItem('myVocabBook', JSON.stringify(vocabData));
-                let order = JSON.parse(localStorage.getItem('myVocabBook_order')) || [];
-                const index = order.indexOf(oldName);
-                if (index > -1) order[index] = newName;
-                localStorage.setItem('myVocabBook_order', JSON.stringify(order));
-                if(document.getElementById('archiveName').value === oldName) { document.getElementById('archiveName').value = newName; }
-                renderVocabList();
-            }
-        }
-        
-        function deleteArchive(name) {
-            if (confirm(`⚠️ 危险操作：\n确定要彻底删除归档【${name}】吗？`)) {
-                let vocabData = JSON.parse(localStorage.getItem('myVocabBook')) || {};
-                delete vocabData[name];
-                localStorage.setItem('myVocabBook', JSON.stringify(vocabData));
-                let order = JSON.parse(localStorage.getItem('myVocabBook_order')) || [];
-                order = order.filter(n => n !== name);
-                localStorage.setItem('myVocabBook_order', JSON.stringify(order));
-                renderVocabList();
-            }
-        }
-
-        function generateCSV(vocabData, fileName) {
-            let csvContent = "\uFEFF归档名称,单词,释义\n";
-            for (const archive in vocabData) {
-                const exportList = [...vocabData[archive]].reverse();
-                exportList.forEach(item => {
-                    let safeMeaning = item.meaning.replace(/"/g, '""').replace(/\n/g, ' ');
-                    csvContent += `"${archive}","${item.word}","${safeMeaning}"\n`;
-                });
-            }
-            const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-            const url = URL.createObjectURL(blob);
-            const link = document.createElement("a");
-            link.href = url;
-            link.download = `${fileName}.csv`; 
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
-        }
-
-        function exportArchive(name) {
-            const vocabData = JSON.parse(localStorage.getItem('myVocabBook')) || {};
-            if(vocabData[name]) { generateCSV({ [name]: vocabData[name] }, name); }
-        }
-
-        exportBtn.addEventListener('click', () => {
-            const vocabData = JSON.parse(localStorage.getItem('myVocabBook')) || {};
-            if (Object.keys(vocabData).length === 0) { alert("生词本是空的！"); return; }
-            const now = new Date();
-            const timeStr = `${now.getFullYear()}${(now.getMonth()+1).toString().padStart(2, '0')}${now.getDate().toString().padStart(2, '0')}${now.getHours().toString().padStart(2, '0')}${now.getMinutes().toString().padStart(2, '0')}${now.getSeconds().toString().padStart(2, '0')}`;
-            generateCSV(vocabData, timeStr);
-        });
-
-        function renderVocabList() {
-            const vocabData = JSON.parse(localStorage.getItem('myVocabBook')) || {};
+    function deleteArchive(name) {
+        if (confirm(`⚠️ 危险操作：\n确定要彻底删除归档【${name}】吗？`)) {
+            let vocabData = JSON.parse(localStorage.getItem('myVocabBook')) || {};
+            delete vocabData[name];
+            localStorage.setItem('myVocabBook', JSON.stringify(vocabData));
             let order = JSON.parse(localStorage.getItem('myVocabBook_order')) || [];
-            vocabListDisplay.innerHTML = '';
-            const validOrder = order.filter(name => vocabData[name]);
-            validOrder.forEach(archive => {
-                const groupDiv = document.createElement('div');
-                groupDiv.className = 'archive-group';
-                const header = document.createElement('div');
-                header.className = 'archive-header';
-                header.innerHTML = `
-                    <div class="archive-title">📂 ${archive} <span style="font-size:12px;color:#888;">(${vocabData[archive].length}词)</span></div>
-                    <div class="archive-actions">
-                        <button class="icon-btn" onclick="exportArchive('${archive.replace(/'/g, "\\'")}')">💾</button>
-                        <button class="icon-btn" onclick="renameArchive('${archive.replace(/'/g, "\\'")}')">✏️</button>
-                        <button class="icon-btn danger" onclick="deleteArchive('${archive.replace(/'/g, "\\'")}')">🗑️</button>
-                    </div>`;
-                groupDiv.appendChild(header);
-                vocabData[archive].forEach(item => {
-                    const meaningParts = item.meaning.split('\n【英】');
-                    let cnText = meaningParts[0].replace('【中】', '');
-                    let enText = meaningParts[1] || '';
-                    const wordDiv = document.createElement('div');
-                    wordDiv.className = 'word-item';
-                    wordDiv.innerHTML = `
-                        <div class="word-content">
-                            <div class="word-header">
-                                <span class="word-word">${item.word}</span>
-                                <button class="audio-btn" onclick="speakWord('${item.word.replace(/'/g, "\\'")}')">🔊</button>
-                            </div>
-                            <div class="word-meaning">
-                                <div class="word-meaning-cn">${cnText}</div>
-                                <div style="color:#888; font-size:13px;">${enText}</div>
-                            </div>
-                        </div>
-                        <div class="action-btns">
-                            <button class="icon-btn" onclick="editWord('${archive.replace(/'/g, "\\'")}', '${item.word.replace(/'/g, "\\'")}')">✏️</button>
-                            <button class="icon-btn danger" onclick="deleteWord('${archive.replace(/'/g, "\\'")}', '${item.word.replace(/'/g, "\\'")}')">🗑️</button>
-                        </div>`;
-                    groupDiv.appendChild(wordDiv);
-                });
-                vocabListDisplay.appendChild(groupDiv);
+            order = order.filter(n => n !== name);
+            localStorage.setItem('myVocabBook_order', JSON.stringify(order));
+            renderVocabList();
+        }
+    }
+
+    function generateCSV(vocabData, fileName) {
+        let csvContent = "\uFEFF归档名称,单词,释义\n";
+        for (const archive in vocabData) {
+            [...vocabData[archive]].reverse().forEach(item => {
+                let safeMeaning = item.meaning.replace(/"/g, '""').replace(/\n/g, ' ');
+                csvContent += `"${archive}","${item.word}","${safeMeaning}"\n`;
             });
         }
-        renderVocabList();
+        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement("a");
+        link.href = url; link.download = `${fileName}.csv`;
+        document.body.appendChild(link); link.click(); document.body.removeChild(link);
+    }
 
-        // 调试：列出所有可用英文音色
-        document.getElementById('listVoicesBtn').addEventListener('click', () => {
-            const doList = () => {
-                const all = window.speechSynthesis.getVoices();
-                const enVoices = all.filter(v => v.lang.startsWith('en'));
-                voiceDebug.style.display = 'block';
-                if (enVoices.length === 0) {
-                    voiceDebug.innerText = '⚠️ 未找到任何英文音色，请稍后再试。';
-                    return;
-                }
-                voiceDebug.innerText = `共找到 ${enVoices.length} 个英文音色：\n` +
-                    enVoices.map((v, i) => `${i+1}. "${v.name}" | ${v.lang}`).join('\n');
-            };
-            const voices = window.speechSynthesis.getVoices();
-            if (voices && voices.length > 0) {
-                doList();
-            } else {
-                voiceDebug.style.display = 'block';
-                voiceDebug.innerText = '⏳ 正在加载音色列表...';
-                window.speechSynthesis.onvoiceschanged = () => {
-                    window.speechSynthesis.onvoiceschanged = null;
-                    doList();
-                };
-                window.speechSynthesis.getVoices();
-            }
+    function exportArchive(name) {
+        const vocabData = JSON.parse(localStorage.getItem('myVocabBook')) || {};
+        if (vocabData[name]) generateCSV({ [name]: vocabData[name] }, name);
+    }
+
+    exportBtn.addEventListener('click', () => {
+        const vocabData = JSON.parse(localStorage.getItem('myVocabBook')) || {};
+        if (Object.keys(vocabData).length === 0) { alert("生词本是空的！"); return; }
+        const now = new Date();
+        const ts = `${now.getFullYear()}${String(now.getMonth()+1).padStart(2,'0')}${String(now.getDate()).padStart(2,'0')}${String(now.getHours()).padStart(2,'0')}${String(now.getMinutes()).padStart(2,'0')}${String(now.getSeconds()).padStart(2,'0')}`;
+        generateCSV(vocabData, ts);
+    });
+
+    function renderVocabList() {
+        const vocabData = JSON.parse(localStorage.getItem('myVocabBook')) || {};
+        let order = JSON.parse(localStorage.getItem('myVocabBook_order')) || [];
+        vocabListDisplay.innerHTML = '';
+        order.filter(name => vocabData[name]).forEach(archive => {
+            const groupDiv = document.createElement('div');
+            groupDiv.className = 'archive-group';
+            const header = document.createElement('div');
+            header.className = 'archive-header';
+            header.innerHTML = `
+                <div class="archive-title">📂 ${archive} <span style="font-size:12px;color:#888;">(${vocabData[archive].length}词)</span></div>
+                <div class="archive-actions">
+                    <button class="icon-btn" onclick="exportArchive('${archive.replace(/'/g,"\\'")}')">💾</button>
+                    <button class="icon-btn" onclick="renameArchive('${archive.replace(/'/g,"\\'")}')">✏️</button>
+                    <button class="icon-btn" onclick="deleteArchive('${archive.replace(/'/g,"\\'")}')">🗑️</button>
+                </div>`;
+            groupDiv.appendChild(header);
+            vocabData[archive].forEach(item => {
+                const parts = item.meaning.split('\n【英】');
+                let cnText = parts[0].replace('【中】', '');
+                let enText = parts[1] || '';
+                const wordDiv = document.createElement('div');
+                wordDiv.className = 'word-item';
+                wordDiv.innerHTML = `
+                    <div class="word-content">
+                        <div class="word-header">
+                            <span class="word-word">${item.word}</span>
+                            <button class="audio-btn" onclick="speakWord('${item.word.replace(/'/g,"\\'")}')">🔊</button>
+                        </div>
+                        <div class="word-meaning">
+                            <div class="word-meaning-cn">${cnText}</div>
+                            <div style="color:#888;font-size:13px;">${enText}</div>
+                        </div>
+                    </div>
+                    <div class="action-btns">
+                        <button class="icon-btn" onclick="editWord('${archive.replace(/'/g,"\\'")}','${item.word.replace(/'/g,"\\'")}')">✏️</button>
+                        <button class="icon-btn" onclick="deleteWord('${archive.replace(/'/g,"\\'")}','${item.word.replace(/'/g,"\\'")}')">🗑️</button>
+                    </div>`;
+                groupDiv.appendChild(wordDiv);
+            });
+            vocabListDisplay.appendChild(groupDiv);
         });
+    }
+    renderVocabList();
 
-        // 页面加载后预热 voices 列表（解决 iPad 首次调用延迟问题）
-        if (DEVICE_TYPE !== 'iPhone') {
-            window.speechSynthesis.getVoices();
-        }
-    </script>
+    // 预热系统 voices
+    if (DEVICE_TYPE !== 'iPhone') window.speechSynthesis.getVoices();
+</script>
 </body>
 </html>
