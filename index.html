@@ -538,9 +538,9 @@
             if (!fullUrl.startsWith(state.serverBaseUrl)) return;
 
             const isFolder = href.endsWith('/');
-            const rawName = decodeURIComponent(href.replace(/\/$/, '').split('/').pop());
-            // 去掉可能的 emoji 前缀（兼容旧格式）
-            const fileName = rawName.replace(/^[📁📄]\s*/, '').trim();
+           // 优先用链接文本作为显示名（天然支持中文/空格），回退到解码 href
+            const textName = a.textContent.replace(/^[📁📄]\s*/, '').trim();
+            const fileName = textName || decodeURIComponent(href.replace(/\/$/, '').split('/').pop());
             const isExcel = !isFolder && (fileName.toLowerCase().endsWith('.xls') || fileName.toLowerCase().endsWith('.xlsx'));
             if (!isFolder && !isExcel) return;
 
