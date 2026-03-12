@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>单词学习与测试程序 V3.2.8</title>
+    <title>单词学习与测试程序 V3.2.9</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <style>
         :root {
@@ -234,7 +234,7 @@
     <script>
         document.querySelector('.app-container').innerHTML = `
         <div id="setup-view" class="view active">
-            <h1>单词学习与测试程序 V3.2.8</h1>
+            <h1>单词学习与测试程序 V3.2.9</h1>
             
             <div class="setup-section">
                 <div class="inline-input-group">
@@ -502,48 +502,64 @@
         function setStatus(message, type = 'url') { const target = type === 'url' ? elements.loadingStatusUrl : elements.loadingStatusLocal; target.textContent = message; }
 
         async function navigateServer(url) {
-            state.currentServerUrl = url;
-            elements.serverSearchInput.value = '';
-            let displayPath = url.replace(state.serverBaseUrl, '');
-            if(!displayPath) displayPath = "/";
-            if(!displayPath.startsWith('/')) displayPath = '/' + displayPath;
-            elements.serverCurrentPath.textContent = displayPath;
-            const baseClean = state.serverBaseUrl.replace(/\/$/, '');
-            const currentClean = url.replace(/\/$/, '');
-            if (currentClean === baseClean) { elements.serverBackBtn.style.visibility = 'hidden'; } else { elements.serverBackBtn.style.visibility = 'visible'; }
-            elements.serverFileList.innerHTML = '<li style="padding:15px; text-align:center; color:gray;">正在加载...</li>';
+    state.currentServerUrl = url;
+    elements.serverSearchInput.value = '';
+    let displayPath = url.replace(state.serverBaseUrl, '');
+    if (!displayPath) displayPath = "/";
+    if (!displayPath.startsWith('/')) displayPath = '/' + displayPath;
+    elements.serverCurrentPath.textContent = displayPath;
+    const baseClean = state.serverBaseUrl.replace(/\/$/, '');
+    const currentClean = url.replace(/\/$/, '');
+    elements.serverBackBtn.style.visibility = currentClean === baseClean ? 'hidden' : 'visible';
+    elements.serverFileList.innerHTML = '<li style="padding:15px; text-align:center; color:gray;">正在加载...</li>';
 
-            try {
-                const r = await fetch(url);
-                if (!r.ok) throw new Error(`HTTP Error ${r.status}`);
-                const html = await r.text();
-                const parser = new DOMParser();
-                const doc = parser.parseFromString(html, 'text/html');
-                const links = Array.from(doc.querySelectorAll('.name-col a'));
-                elements.serverFileList.innerHTML = '';
-                let itemsFound = 0;
-                links.forEach(a => {
-                    const href = a.getAttribute('href');
-                    const textContent = a.textContent.trim(); 
-                    if (!href) return;
-                    const fullUrl = new URL(href, state.serverBaseUrl).href;
-                    const isFolder = textContent.includes('📁');
-                    const isFile = textContent.includes('📄');
-                    const fileName = textContent.replace(/[📁📄]/g, '').trim();
-                    const isExcel = isFile && (fileName.toLowerCase().endsWith('.xls') || fileName.toLowerCase().endsWith('.xlsx'));
-                    if (!isFolder && !isExcel) return; 
-                    const li = document.createElement('li');
-                    li.className = `file-item ${isFolder ? 'folder-item' : 'excel-item'}`;
-                    const icon = document.createElement('span'); icon.className = 'file-icon'; icon.textContent = isFolder ? '📁' : '📊';
-                    const nameSpan = document.createElement('span'); nameSpan.className = 'file-name'; nameSpan.textContent = fileName;
-                    li.appendChild(icon); li.appendChild(nameSpan);
-                    li.onclick = () => { if (isFolder) { navigateServer(fullUrl); } else { elements.urlInput.value = fullUrl; handleUrlLoad(fullUrl); } };
-                    elements.serverFileList.appendChild(li);
-                    itemsFound++;
-                });
-                if (itemsFound === 0) elements.serverFileList.innerHTML = '<li style="padding:15px; text-align:center; color:gray;">空文件夹或无Excel文件</li>';
-            } catch (err) { console.error(err); elements.serverFileList.innerHTML = '<li style="padding:15px; text-align:center; color:red;">无法连接服务器 (请检查网络)</li>'; }
-        }
+    try {
+        const r = await fetch(url);
+        if (!r.ok) throw new Error(`HTTP Error ${r.status}`);
+        const html = await r.text();
+        const parser = new DOMParser();
+        const doc = parser.parseFromString(html, 'text/html');
+
+        // ✅ 兼容多种目录格式：优先 .name-col a，否则取全部 a[href]
+        let links = Array.from(doc.querySelectorAll('.name-col a'));
+        if (links.length === 0) links = Array.from(doc.querySelectorAll('a[href]'));
+
+        elements.serverFileList.innerHTML = '';
+        let itemsFound = 0;
+
+        links.forEach(a => {
+            const href = a.getAttribute('href');
+            if (!href) return;
+            // 跳过父目录、排序参数、锚点
+            if (href === '../' || href === './' || href.startsWith('?') || href.startsWith('#') || href === '/') return;
+
+            let fullUrl;
+            try { fullUrl = new URL(href, url).href; } catch { return; }
+            if (!fullUrl.startsWith(state.serverBaseUrl)) return;
+
+            const isFolder = href.endsWith('/');
+            const rawName = decodeURIComponent(href.replace(/\/$/, '').split('/').pop());
+            // 去掉可能的 emoji 前缀（兼容旧格式）
+            const fileName = rawName.replace(/^[📁📄]\s*/, '').trim();
+            const isExcel = !isFolder && (fileName.toLowerCase().endsWith('.xls') || fileName.toLowerCase().endsWith('.xlsx'));
+            if (!isFolder && !isExcel) return;
+
+            const li = document.createElement('li');
+            li.className = `file-item ${isFolder ? 'folder-item' : 'excel-item'}`;
+            const icon = document.createElement('span'); icon.className = 'file-icon'; icon.textContent = isFolder ? '📁' : '📊';
+            const nameSpan = document.createElement('span'); nameSpan.className = 'file-name'; nameSpan.textContent = fileName;
+            li.appendChild(icon); li.appendChild(nameSpan);
+            li.onclick = () => { if (isFolder) { navigateServer(fullUrl); } else { elements.urlInput.value = fullUrl; handleUrlLoad(fullUrl); } };
+            elements.serverFileList.appendChild(li);
+            itemsFound++;
+        });
+
+        if (itemsFound === 0) elements.serverFileList.innerHTML = '<li style="padding:15px; text-align:center; color:gray;">空文件夹或无Excel文件</li>';
+    } catch (err) {
+        console.error(err);
+        elements.serverFileList.innerHTML = '<li style="padding:15px; text-align:center; color:red;">无法连接服务器 (请检查网络)</li>';
+    }
+}
         
         elements.serverSearchInput.addEventListener('input', function(e) {
             const filter = e.target.value.toLowerCase();
@@ -787,7 +803,7 @@
                 displayWord();
                 return;
             }
-            // V3.2.0 Audio Toggle Logic
+            // V3.2.9 Audio Toggle Logic
             if (target.id === 'toggle-audio-btn') {
                 state.isAutoAudio = !state.isAutoAudio;
                 updateAudioButtonState();
