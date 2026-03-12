@@ -505,9 +505,9 @@
     state.currentServerUrl = url;
     elements.serverSearchInput.value = '';
     let displayPath = url.replace(state.serverBaseUrl, '');
-    if (!displayPath) displayPath = "/";
-    if (!displayPath.startsWith('/')) displayPath = '/' + displayPath;
-    elements.serverCurrentPath.textContent = displayPath;
+if (!displayPath) displayPath = "/";
+if (!displayPath.startsWith('/')) displayPath = '/' + displayPath;
+elements.serverCurrentPath.textContent = decodeURIComponent(displayPath);
     const baseClean = state.serverBaseUrl.replace(/\/$/, '');
     const currentClean = url.replace(/\/$/, '');
     elements.serverBackBtn.style.visibility = currentClean === baseClean ? 'hidden' : 'visible';
@@ -537,7 +537,8 @@
             try { fullUrl = new URL(href, url).href; } catch { return; }
             if (!fullUrl.startsWith(state.serverBaseUrl)) return;
 
-            const isFolder = href.endsWith('/');
+           // 兼容带斜杠和不带斜杠的目录链接
+const isFolder = href.endsWith('/') || (!href.includes('.'));
            // 优先用链接文本作为显示名（天然支持中文/空格），回退到解码 href
             const textName = a.textContent.replace(/^[📁📄]\s*/, '').trim();
             const fileName = textName || decodeURIComponent(href.replace(/\/$/, '').split('/').pop());
