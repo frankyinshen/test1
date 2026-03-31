@@ -504,10 +504,13 @@
         async function navigateServer(url) {
     state.currentServerUrl = url;
     elements.serverSearchInput.value = '';
+    
+    // 1. 处理显示路径
     let displayPath = url.replace(state.serverBaseUrl, '');
-if (!displayPath) displayPath = "/";
-if (!displayPath.startsWith('/')) displayPath = '/' + displayPath;
-elements.serverCurrentPath.textContent = decodeURIComponent(displayPath);
+    if (!displayPath || displayPath === '/') displayPath = "/";
+    if (!displayPath.startsWith('/')) displayPath = '/' + displayPath;
+    elements.serverCurrentPath.textContent = decodeURIComponent(displayPath);
+
     const baseClean = state.serverBaseUrl.replace(/\/$/, '');
     const currentClean = url.replace(/\/$/, '');
     elements.serverBackBtn.style.visibility = currentClean === baseClean ? 'hidden' : 'visible';
@@ -520,8 +523,8 @@ elements.serverCurrentPath.textContent = decodeURIComponent(displayPath);
         const parser = new DOMParser();
         const doc = parser.parseFromString(html, 'text/html');
 
-        // ✅ 兼容多种目录格式：优先 .name-col a，否则取全部 a[href]
-        let links = Array.from(doc.querySelectorAll('.name-col a'));
+        // 2. 这里的选择器要匹配 Worker 生成的 <td> 结构
+        let links = Array.from(doc.querySelectorAll('td a')); 
         if (links.length === 0) links = Array.from(doc.querySelectorAll('a[href]'));
 
         elements.serverFileList.innerHTML = '';
@@ -530,35 +533,65 @@ elements.serverCurrentPath.textContent = decodeURIComponent(displayPath);
         links.forEach(a => {
             const href = a.getAttribute('href');
             if (!href) return;
-            // 跳过父目录、排序参数、锚点
-            if (href === '../' || href === './' || href.startsWith('?') || href.startsWith('#') || href === '/') return;
+            
+            // 跳过父目录和无用链接
+            if (href === '../' || href === './' || href.startsWith('?') || href.startsWith('#')) return;
 
+            // 3. 处理 URL 拼接
             let fullUrl;
-            try { fullUrl = new URL(href, url).href; } catch { return; }
-            if (!fullUrl.startsWith(state.serverBaseUrl)) return;
+            try {
+                // 如果是绝对路径（如 /uploads/），基于当前 server 根目录构建
+                fullUrl = new URL(href, state.serverBaseUrl).href;
+            } catch { return; }
 
-           // 兼容带斜杠和不带斜杠的目录链接
-const isFolder = href.endsWith('/') || (!href.includes('.'));
-           // 优先用链接文本作为显示名（天然支持中文/空格），回退到解码 href
+            // 4. 判断是否为文件夹 (根据 Worker 输出，文件夹链接以 / 结尾)
+            const isFolder = href.endsWith('/');
+            
+            // 5. 获取显示名称
             const textName = a.textContent.replace(/^[📁📄]\s*/, '').trim();
             const fileName = textName || decodeURIComponent(href.replace(/\/$/, '').split('/').pop());
+            
+            // 6. 判断是否为 Excel
             const isExcel = !isFolder && (fileName.toLowerCase().endsWith('.xls') || fileName.toLowerCase().endsWith('.xlsx'));
+            
             if (!isFolder && !isExcel) return;
+
+            // 7. 特别修正：如果是文件链接且指向了 CDN 域名，我们需要保留它用于下载
+            // 但过滤逻辑不再强制要求必须以 serverBaseUrl 开头
+            if (isFolder && !fullUrl.startsWith(state.serverBaseUrl)) return;
 
             const li = document.createElement('li');
             li.className = `file-item ${isFolder ? 'folder-item' : 'excel-item'}`;
-            const icon = document.createElement('span'); icon.className = 'file-icon'; icon.textContent = isFolder ? '📁' : '📊';
-            const nameSpan = document.createElement('span'); nameSpan.className = 'file-name'; nameSpan.textContent = fileName;
-            li.appendChild(icon); li.appendChild(nameSpan);
-            li.onclick = () => { if (isFolder) { navigateServer(fullUrl); } else { elements.urlInput.value = fullUrl; handleUrlLoad(fullUrl); } };
+            const icon = document.createElement('span'); 
+            icon.className = 'file-icon'; 
+            icon.textContent = isFolder ? '📁' : '📊';
+            const nameSpan = document.createElement('span'); 
+            nameSpan.className = 'file-name'; 
+            nameSpan.textContent = fileName;
+            
+            li.appendChild(icon); 
+            li.appendChild(nameSpan);
+            
+            li.onclick = () => { 
+                if (isFolder) { 
+                    navigateServer(fullUrl); 
+                } else { 
+                    // 文件直接使用 <a> 标签里的原始 href (即 CDN 地址)
+                    const downloadUrl = a.href; 
+                    elements.urlInput.value = downloadUrl; 
+                    handleUrlLoad(downloadUrl); 
+                } 
+            };
             elements.serverFileList.appendChild(li);
             itemsFound++;
         });
 
-        if (itemsFound === 0) elements.serverFileList.innerHTML = '<li style="padding:15px; text-align:center; color:gray;">空文件夹或无Excel文件</li>';
+        if (itemsFound === 0) {
+            elements.serverFileList.innerHTML = '<li style="padding:15px; text-align:center; color:gray;">空文件夹或无Excel文件</li>';
+        }
     } catch (err) {
         console.error(err);
-        elements.serverFileList.innerHTML = '<li style="padding:15px; text-align:center; color:red;">无法连接服务器 (请检查网络)</li>';
+        elements.serverFileList.innerHTML = '<li style="padding:15px; text-align:center; color:red;">无法连接服务器 (检查 CORS 配置)</li>';
     }
 }
         
